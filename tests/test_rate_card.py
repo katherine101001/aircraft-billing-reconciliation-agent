@@ -43,3 +43,16 @@ def test_missing_rate_raises():
         assert False, "应该抛出 ValueError"
     except ValueError:
         pass
+
+
+def test_any_fallback_when_exact_condition_missing():
+    # 构造一个只有 ANY 兜底行的费率表：查特定条件时，精确匹配失败 → 退回 ANY
+    import pandas as pd
+    df = pd.DataFrame([{
+        "charge_type": "TEST",
+        "condition": "ANY",
+        "effective_from": date(2026, 1, 1),
+        "effective_to": date(9999, 12, 31),
+        "unit_rate": 9.99,
+    }])
+    assert lookup_rate(df, "TEST", "SPECIAL", date(2026, 6, 1)) == 9.99

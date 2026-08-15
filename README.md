@@ -23,7 +23,7 @@ candidate_pack/
 │   ├── report.py          # 输出 exceptions.csv + summary.md
 │   └── main.py            # 入口
 ├── output/                # 生成结果（运行后产生）
-├── tests/                 # 51 个测试用例（python -m tests.run_all）
+├── tests/                 # 88 个测试用例（python -m tests.run_all）
 ├── REQUIREMENTS_TRACEABILITY.md  # 需求 → 代码位置对照清单
 ├── requirements.txt
 ├── .env.example
@@ -88,11 +88,19 @@ python -m src.main
 ## 测试
 
 ```bash
+# 跑全部测试（88 个用例）
 python -m tests.run_all
+
+# 看代码覆盖率（需先 pip install -r requirements-dev.txt）
+python -m coverage run -m tests.run_all
+python -m coverage report -m
 ```
 
-共 **51 个用例**，覆盖计费规则、查价、对账判定、credit note 解决与端到端，全部应通过。
+共 **88 个用例**，覆盖计费规则、查价、对账判定、credit note 解决、AI 层、报告输出、配置/加载与端到端，全部应通过。
 测试是「正确性」的可复现证据：任何改坏逻辑的改动都会让测试失配。
+
+**覆盖率目标：100%**（`src/` 全部 271 条语句、84 个分支均被执行到）。
+除 `src/main.py` 的 `if __name__ == "__main__"` 入口（由子进程测试触发）外，无任何「未覆盖」豁免。
 
 ---
 

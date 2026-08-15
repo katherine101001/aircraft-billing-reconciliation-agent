@@ -183,3 +183,46 @@ def test_financial_impact_sign_convention():
     over_line = make_line(movement_id="MOV-OVER", charge_type="LANDING", amount_billed=100.00)
     over = by_type(_run([m_over], [over_line]), "CANCELLED_CHARGED")[0]
     assert over["financial_impact_myr"] < 0
+
+
+def test_clean_movement_no_exception():
+    # COMPLETED + 4 种费用全部正确开单 → 0 异常（证明无误报）
+    m = make_movement(mtow_tonnes=412.0, stand_type="CONTACT",
+                      arrival_datetime=datetime(2026, 3, 1, 14, 0),
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 150 分钟
+    lines = [
+        make_line(invoice_line_id="BL-L", charge_type="LANDING", quantity=412,
+                  unit_rate=12.00, amount_billed=4944.00),
+        make_line(invoice_line_id="BL-P", charge_type="PARKING", quantity=6,
+                  unit_rate=8.00, amount_billed=48.00),
+        make_line(invoice_line_id="BL-A", charge_type="AEROBRIDGE", quantity=3,
+                  unit_rate=120.00, amount_billed=360.00),
+        make_line(invoice_line_id="BL-S", charge_type="PSC", quantity=100,
+                  unit_rate=35.00, amount_billed=3500.00),
+    ]
+    assert _run([m], lines) == []
+
+
+def test_three_duplicates_two_flagged():
+    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
+    lines = [make_line(invoice_line_id=f"BL-{i}", charge_type="LANDING", quantity=412,
+                       unit_rate=12.00, amount_billed=4944.00) for i in range(3)]
+    dup = by_type(_run([m], lines), "DUPLICATE")
+    assert len(dup) == 2  # 第 2、3 行是重复
+
+
+def test_cancelled_with_no_ledger_no_exception():
+    m = make_movement(status="CANCELLED", stand_type="REMOTE", pax_departing=0)
+    assert _run([m], []) == []  # 取消 + 无账单 → 无异常（不算漏收）
+
+
+def test_multiple_charge_types_mixed():
+    # LANDING 单价错 + PARKING 漏收同时发生 → 两条不同类型异常
+    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0,
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 120 分钟 → 停车 32
+    line = make_line(charge_type="LANDING", quantity=412, unit_rate=10.00, amount_billed=4120.00)
+    exc = _run([m], [line])
+    assert len(by_type(exc, "WRONG_RATE")) == 1
+    miss = by_type(exc, "MISSING_CHARGE")
+    assert len(miss) == 1
+    assert miss[0]["charge_type"] == "PARKING"

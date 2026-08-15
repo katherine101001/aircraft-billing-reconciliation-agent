@@ -49,3 +49,44 @@ def test_end_to_end_no_rounding_false_alarm():
     small = [e for e in exc if e["exception_type"] != "WRONG_AIRLINE"
              and 0 < abs(e["financial_impact_myr"]) <= 0.05]
     assert small == [], f"存在 ≤0.05 的舍入误报: {small}"
+
+
+# ---------- 全局不变式（对整份输出做属性校验）----------
+
+def test_invariant_net_equals_positive_plus_negative():
+    exc = _run_full()
+    pos = round(sum(e["financial_impact_myr"] for e in exc if e["financial_impact_myr"] > 0), 2)
+    neg = round(sum(e["financial_impact_myr"] for e in exc if e["financial_impact_myr"] < 0), 2)
+    net = round(sum(e["financial_impact_myr"] for e in exc), 2)
+    assert round(pos + neg, 2) == net
+
+
+def test_invariant_sign_convention_by_type():
+    exc = _run_full()
+    overcharge_types = {"DUPLICATE", "ORPHAN_CHARGE", "CANCELLED_CHARGED",
+                        "REMOTE_AEROBRIDGE", "DIVERTED_OVERCHARGE", "PSC_ON_CARGO"}
+    for e in exc:
+        if e["exception_type"] in overcharge_types:
+            assert e["financial_impact_myr"] < 0, f"{e['exception_type']} 应为负（多收）"
+        if e["exception_type"] == "MISSING_CHARGE":
+            assert e["financial_impact_myr"] > 0, "漏收应为正（少收）"
+        if e["exception_type"] == "WRONG_AIRLINE":
+            assert e["financial_impact_myr"] == 0.0
+
+
+def test_invariant_evidence_attached_except_orphan():
+    exc = _run_full()
+    for e in exc:
+        if e["exception_type"] != "ORPHAN_CHARGE":
+            assert e["evidence_ref"], f"{e['exception_type']} 应挂证据号"
+
+
+def test_invariant_all_required_fields_present():
+    exc = _run_full()
+    required = ["movement_id", "invoice_line_id", "exception_type", "charge_type",
+                "airline_code", "billed_airline_code", "expected_amount",
+                "actual_amount", "financial_impact_myr", "evidence_ref",
+                "resolution_status", "credit_note_id"]
+    for e in exc:
+        for k in required:
+            assert k in e, f"缺少字段 {k}"

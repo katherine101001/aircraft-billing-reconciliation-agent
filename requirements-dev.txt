@@ -1,0 +1,5 @@
+# 开发/测试依赖（运行时不需要）。测量覆盖率用：
+#   pip install -r requirements-dev.txt
+#   python -m coverage run -m tests.run_all
+#   python -m coverage report -m
+coverage>=7.0

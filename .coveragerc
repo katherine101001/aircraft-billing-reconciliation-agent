@@ -1,0 +1,9 @@
+# coverage.py 配置：只统计 src/，开启分支覆盖，排除入口行的 no cover 标注
+[run]
+source = src
+branch = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

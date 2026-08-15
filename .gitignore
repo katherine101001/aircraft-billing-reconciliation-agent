@@ -20,6 +20,11 @@ env/
 .mypy_cache/
 .ruff_cache/
 
+# 覆盖率数据（运行时产生，不入库）
+.coverage
+.coverage.*
+htmlcov/
+
 # IDE / 编辑器 / 系统文件
 .idea/
 .vscode/

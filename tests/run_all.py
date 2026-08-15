@@ -14,10 +14,15 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 MODULES = [
-    "tests.test_billing_rules",
+    "tests.test_config",
+    "tests.test_load",
     "tests.test_rate_card",
+    "tests.test_billing_rules",
     "tests.test_reconcile",
     "tests.test_credit_notes",
+    "tests.test_ai_layer",
+    "tests.test_report",
+    "tests.test_main",
     "tests.test_end_to_end",
 ]
 

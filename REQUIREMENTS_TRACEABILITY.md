@@ -90,4 +90,6 @@
 
 ## 附：测试（可复现的正确性证据）
 
-运行 `python -m tests.run_all`，共 **51 个用例**覆盖计费规则、查价、对账判定、credit note 解决、端到端，全部通过。见 `tests/`。
+运行 `python -m tests.run_all`，共 **88 个用例**覆盖计费规则、查价、对账判定、credit note 解决、AI 层、报告输出、配置/加载、端到端，全部通过。见 `tests/`。
+
+代码覆盖率达 **100%**（`src/` 271 条语句、84 个分支）：`python -m coverage run -m tests.run_all && python -m coverage report -m`。

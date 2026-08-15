@@ -41,5 +41,5 @@ def main() -> None:
     write_report(exceptions, assumptions)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover —— 入口，由 `python -m src.main` 触发（见 tests/test_main.py）
     main()
