@@ -1,0 +1,29 @@
+# 生成的输出（可复现，不入库）
+output/
+
+# 密钥（绝不提交）
+.env
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 测试 / 类型检查缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / 编辑器 / 系统文件
+.idea/
+.vscode/
+.DS_Store
+
+# 本地 Claude 配置
+.claude/

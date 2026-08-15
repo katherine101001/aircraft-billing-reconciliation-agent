@@ -1,0 +1,14 @@
+airline_code,airline_name,airline_type,home_country,credit_terms_days,active
+CQ,Cendana Air,FULL_SERVICE,MY,30,true
+RJ,Rajawali Airways,FULL_SERVICE,MY,30,true
+SW,Selat Wings,LOW_COST,MY,14,true
+TG,Tenggara Jet,LOW_COST,MY,14,true
+BN,Borneo Air Express,LOW_COST,MY,30,true
+KP,Kinabalu Pacific,FULL_SERVICE,SG,45,true
+ML,Merlion Skyways,FULL_SERVICE,SG,45,true
+GA,Garudaya Air,FULL_SERVICE,ID,45,true
+VN,Vientiane Connect,CHARTER,LA,30,true
+CX,Cathay Meridian,FULL_SERVICE,HK,45,true
+FX,FarEast Cargo,CARGO,MY,30,true
+QC,Quantum Freight,CARGO,AE,45,true
+ZZ,Zamrud Charter,CHARTER,MY,14,false

@@ -1,0 +1,12 @@
+key,value,unit,note
+data_snapshot_date,2026-07-01,date,"Data pinned as of this date; reconcile H1 2026 only, not today's date"
+reconciliation_period_start,2026-01-01,date,
+reconciliation_period_end,2026-06-30,date,
+amount_tolerance,0.05,MYR,"Differences at or below this are rounding, not exceptions"
+billable_statuses,"COMPLETED,DIVERTED",enum,CANCELLED movements are not billable
+diverted_billable_charges,LANDING,enum,Diverted flights are billable for LANDING only
+free_parking_minutes,60,minutes,"Parking is free up to this; charge only the excess, per 15-min block"
+aerobridge_requires,CONTACT,enum,Aerobridge is billable only for CONTACT stands
+landing_basis,per_tonne_mtow,note,Landing quantity = MTOW tonnes rounded up; rate is date-dependent
+psc_basis,per_departing_pax,note,PSC quantity = departing pax; rate depends on DOMESTIC/INTERNATIONAL scope
+currency,MYR,code,
