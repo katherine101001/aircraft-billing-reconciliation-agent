@@ -1,149 +1,166 @@
 # Aircraft Billing & Movement Reconciliation Agent
 
-一个**确定性对账引擎**：比对机场起降日志（`movements.csv`）与财务开单（`billing_ledger.csv`），
-找出每一处差异、量化财务影响（MYR）、挂接证据引用，并由 AI 层把结果写成可交付的文字。
+> English version · 中文版见 [`README_zh.md`](README_zh.md)
 
-> 本系统只对账 `assumptions.csv` 中声明的快照期间（2026-01-01 ~ 2026-06-30）。
-> 所有业务输入（费率、阈值、日期、计费规则）均从数据文件运行时读取，**不硬编码**。
+A **deterministic reconciliation engine** that compares the airport movement log (`movements.csv`)
+against the billing ledger (`billing_ledger.csv`), finds every discrepancy, quantifies the
+financial impact (MYR), attaches an evidence reference, and lets the AI layer turn the results
+into deliverable prose.
+
+> This system reconciles only the snapshot period declared in `assumptions.csv`
+> (2026-01-01 ~ 2026-06-30). All business inputs (rates, thresholds, dates, billing rules) are
+> read from the data files at run time — **nothing is hardcoded**.
 
 ---
 
-## 目录结构
+## Directory structure
 
 ```
 candidate_pack/
-├── data/                  # 原始数据（只读，6 张 CSV）
+├── data/                  # Raw data (read-only, 6 CSVs)
 ├── src/
-│   ├── config.py          # 读 assumptions.csv（对账规则）
-│   ├── load.py            # 读 6 张表
-│   ├── rate_card.py       # 按 charge_type + condition + 日期查单价
-│   ├── billing_rules.py   # 计算「应该收取」的费用（核心算法）
-│   ├── reconcile.py       # 对账主循环 + credit note 解决
-│   ├── ai_layer.py        # AI 层（只写文字，当前为 mock）
-│   ├── report.py          # 输出 exceptions.csv + summary.md
-│   └── main.py            # 入口
-├── output/                # 生成结果（运行后产生）
-├── tests/                 # 88 个测试用例（python -m tests.run_all）
-├── REQUIREMENTS_TRACEABILITY.md  # 需求 → 代码位置对照清单
+│   ├── config.py          # Reads assumptions.csv (reconciliation rules)
+│   ├── load.py            # Reads the 6 tables
+│   ├── rate_card.py       # Looks up unit rate by charge_type + condition + date
+│   ├── billing_rules.py   # Computes expected charges (core algorithm)
+│   ├── reconcile.py       # Main reconciliation loop + credit note resolution
+│   ├── ai_layer.py        # AI layer (writes words only, currently a mock)
+│   ├── report.py          # Writes exceptions.csv + summary.md
+│   └── main.py            # Entry point
+├── output/                # Generated results (produced on run)
+├── tests/                 # 88 test cases (python -m tests.run_all)
+├── REQUIREMENTS_TRACEABILITY.md  # Requirement → code location map
+├── BUG_PRIORITY.md        # P0/P1/P2 bug classification
+├── PPT_PLAN.md            # Slide-by-slide deck plan (numbers from engine output)
+├── AI_USAGE_LOG.md        # AI usage log
 ├── requirements.txt
 ├── .env.example
 └── README.md
 ```
 
+> Docs are bilingual: the `_zh.md` files are the Chinese versions of the same document
+> (e.g. `README_zh.md`, `REQUIREMENTS_TRACEABILITY_zh.md`).
+
 ---
 
-## 环境要求
+## Requirements
 
 - Python 3.10+
 - pandas >= 2.0
 
-## 快速开始
+## Quick start
 
-### 前置条件
+### Prerequisites
 
-- **数据**：仓库自带 `data/` 文件夹（6 张 CSV），运行前确认它在项目根目录下。
-- **Python**：3.10 及以上（本项目在 3.10.11 上验证）。
-- **LLM API key（可选）**：不配置也能跑，AI 层会退化为 mock 文案（边界不变）。
+- **Data**: the repo ships with the `data/` folder (6 CSVs); confirm it sits in the project root.
+- **Python**: 3.10 or later (verified on 3.10.11).
+- **LLM API key (optional)**: the AI layer falls back to mock text without one (the boundary is unchanged).
 
-### 复现步骤（确切命令）
+### Reproduce (exact commands)
 
 ```bash
-# 0. 获取代码
-git clone <你的仓库地址>        # 或解压 zip 到任意目录
+# 0. Get the code
+git clone <your-repo-url>        # or unzip to any directory
 cd candidate_pack
 
-# 1. 安装依赖（只需 pandas）
+# 1. Install dependencies (only pandas is needed)
 pip install -r requirements.txt
 
-# 2.（可选）配置 LLM API key；不配也能跑
-#    cp .env.example .env        # 然后编辑 .env 填入 OPENAI_API_KEY
+# 2. (Optional) configure an LLM API key; it runs without one
+#    cp .env.example .env        # then edit .env and fill in OPENAI_API_KEY
 
-# 3. 运行对账引擎
+# 3. Run the reconciliation engine
 python -m src.main
 ```
 
-运行成功后，控制台会打印管理总结，并生成两个文件：
+On success, the console prints the management summary and generates two files:
 
-| 文件 | 内容 |
+| File | Contents |
 |---|---|
-| `output/exceptions.csv` | 全部异常，每行含类型、期望值、实际值、财务影响、证据引用、解决状态 |
-| `output/summary.md` | AI 生成的管理层总结 + 代表性案例说明 |
+| `output/exceptions.csv` | Every exception: type, expected value, actual value, financial impact, evidence reference, resolution status |
+| `output/summary.md` | AI-generated management summary + representative case explanations |
 
-### 预期输出（复现校验）
+### Expected output (reproducibility check)
 
-用同一份数据运行，结果是**确定性的**，应与下表一致（可作为「是否跑对」的校验锚点）：
+Running on the same data is **deterministic** and should match the table below
+(a useful "did I run it right" anchor):
 
-| 指标 | 值 |
+| Metric | Value |
 |---|---|
-| 异常总数 | 92 条 |
-| 净财务影响 | -24,779.10 MYR |
-| 漏收/少收（应补收） | 58,824.70 MYR |
-| 多收/错收（应退航司） | 83,603.80 MYR |
-| 已被 credit note 解决 | 5 条 |
+| Total exceptions | 92 |
+| Net financial impact | -24,779.10 MYR |
+| Under-billed (owed to operator) | 58,824.70 MYR |
+| Over-billed (owed back to airlines) | 83,603.80 MYR |
+| Resolved by credit note | 5 |
 
-若跑出的数字与此不同，请检查是否替换了 `data/` 下的数据文件，或改动了 `rate_card.csv` / `assumptions.csv`。
+If your numbers differ, check whether you replaced files under `data/`, or changed
+`rate_card.csv` / `assumptions.csv`.
 
 ---
 
-## 测试
+## Tests
 
 ```bash
-# 跑全部测试（88 个用例）
+# Run all tests (88 cases)
 python -m tests.run_all
 
-# 看代码覆盖率（需先 pip install -r requirements-dev.txt）
+# Measure coverage (install first: pip install -r requirements-dev.txt)
 python -m coverage run -m tests.run_all
 python -m coverage report -m
 ```
 
-共 **88 个用例**，覆盖计费规则、查价、对账判定、credit note 解决、AI 层、报告输出、配置/加载与端到端，全部应通过。
-测试是「正确性」的可复现证据：任何改坏逻辑的改动都会让测试失配。
+**88 cases**, covering billing rules, rate lookup, reconciliation, credit note resolution,
+the AI layer, report output, config/loading, and end-to-end — all should pass.
+The tests are the reproducible proof of correctness: any change that breaks the logic makes them fail.
 
-**覆盖率目标：100%**（`src/` 全部 271 条语句、84 个分支均被执行到）。
-除 `src/main.py` 的 `if __name__ == "__main__"` 入口（由子进程测试触发）外，无任何「未覆盖」豁免。
-
----
-
-## 需求 → 代码对照
-
-见 `REQUIREMENTS_TRACEABILITY.md`：题目每条要求 → 具体代码位置，方便核对。
+**Coverage target: 100%** (all 271 statements and 84 branches under `src/` are exercised).
+Except for `src/main.py`'s `if __name__ == "__main__"` entry (triggered by a subprocess test),
+there are no "uncovered" exemptions.
 
 ---
 
-## 异常类型
+## Requirement → code mapping
 
-引擎识别 11 类异常（见 `src/reconcile.py` 顶部注释）：
-
-`MISSING_CHARGE`（漏收）、`WRONG_RATE`（错误单价）、`WRONG_QUANTITY`（错误数量）、
-`WRONG_AMOUNT`（金额错）、`DUPLICATE`（重复开单）、`ORPHAN_CHARGE`（无对应起降）、
-`WRONG_AIRLINE`（错记航司，净影响 0）、`CANCELLED_CHARGED`（取消航班收费）、
-`REMOTE_AEROBRIDGE`（远机位廊桥）、`DIVERTED_OVERCHARGE`（备降多收费）、
-`PSC_ON_CARGO`（货机旅客费）。
-
-财务影响符号：**正数 = 钱应归运营方（漏收）；负数 = 钱应退航司（多收）**。
-差异 ≤ `amount_tolerance`(0.05 MYR) 视为舍入，不标记。
+See `REQUIREMENTS_TRACEABILITY.md`: every brief requirement → its concrete code location.
 
 ---
 
-## AI 层与边界
+## Exception types
 
-对账引擎（`reconcile.py`）决定异常类型和每一个金额；AI 层（`ai_layer.py`）只负责：
-1. 把异常类型翻译成大白话；
-2. 起草带证据号的退款/争议说明；
-3. 生成管理总结。
+The engine recognises 11 exception types (see the header comment in `src/reconcile.py`):
 
-**模型绝不设置或修改任何数字或分类。** 当前为 mock 实现，真实 LLM 的接入点在
-`src/ai_layer.py` 底部以 `TODO` 标注，替换 `explain()` 与 `summarize()` 即可，边界不变。
+`MISSING_CHARGE`, `WRONG_RATE`, `WRONG_QUANTITY`, `WRONG_AMOUNT`, `DUPLICATE`,
+`ORPHAN_CHARGE`, `WRONG_AIRLINE` (net impact 0), `CANCELLED_CHARGED`,
+`REMOTE_AEROBRIDGE`, `DIVERTED_OVERCHARGE`, `PSC_ON_CARGO`.
+
+Financial impact sign: **positive = money owed to the operator (under-billed);
+negative = money owed back to the airline (over-billed)**.
+A difference ≤ `amount_tolerance` (0.05 MYR) is rounding and is not flagged.
 
 ---
 
-## 治理与复现说明
+## AI layer and the boundary
 
-- 报告中每个数字都来自 `src/reconcile.py` 的一次运行，未手工填入。
-- 只对账 `reconciliation_period_start/end`，使用 `data_snapshot_date`，不使用今天日期。
-- credit note 仅当其 `related_invoice_line_id` 精确匹配问题行、且金额与币种覆盖差异时，才将异常标记为 `RESOLVED_BY_CREDIT_NOTE`。
-- 报告是给人工复核的建议，发往航司前需人工签字确认。
+The reconciliation engine (`reconcile.py`) sets the exception type and every amount; the AI
+layer (`ai_layer.py`) only:
+1. translates the exception type into plain language;
+2. drafts a refund/dispute explanation citing the evidence reference;
+3. produces the management summary.
 
-## AI 使用日志
+**The model never sets or changes any number or classification.** It is currently a mock; the
+real-LLM insertion point is marked with a `TODO` at the bottom of `src/ai_layer.py` — replace
+`explain()` and `summarize()`, and the boundary stays the same.
 
-见 `AI_USAGE_LOG.md`。
+---
+
+## Governance & reproducibility notes
+
+- Every number in the report comes from a single run of `src/reconcile.py`; nothing is typed in by hand.
+- Only the `reconciliation_period_start/end` is reconciled, using `data_snapshot_date`, never today's date.
+- A credit note resolves an exception only when its `related_invoice_line_id` exactly matches the
+  problem line and its amount and currency cover the difference.
+- The report is a recommendation for human review; nothing is sent to an airline without sign-off.
+
+## AI usage log
+
+See `AI_USAGE_LOG.md`.

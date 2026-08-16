@@ -1,136 +1,148 @@
-# BUG 优先级清单（P0 / P1 / P2）
+# Bug Priority List (P0 / P1 / P2)
 
-> 目的：回答两个问题 ——
-> 1. 「以目前的测试，到哪个阶段是 0 bug？」
-> 2. 「从哪里开始才可能出 bug？」
+> English version · 中文版见 [`BUG_PRIORITY_zh.md`](BUG_PRIORITY_zh.md)
+>
+> Purpose: answer two questions —
+> 1. "Given the current tests, up to which stage are there zero bugs?"
+> 2. "Where could bugs start to appear?"
 
 ---
 
-## 结论先行（你要的「确认」）
+## Conclusion up front (the confirmation you asked for)
 
-✅ **已确认：引擎核心在「当前这份数据」上，P0、P1 bug 都不会出现。**
-证据：88 个测试全部通过 + 100% 覆盖率 + 端到端锚点（92 条 / 净 −24,779.10 / 错记航司净 0）全部对得上。这一段没有任何已知的 P0/P1 bug。
+✅ **Confirmed: in the engine core, on the current dataset, no P0 or P1 bug will appear.**
+Evidence: 88 tests all pass + 100% coverage + the end-to-end anchors (92 exceptions / net −24,779.10 /
+wrong-airline net 0) all match. This section has no known P0/P1 bug.
 
-⚠️ **但「P0/P1 不会出现」是有前提的 —— 前提由人守住，不在代码里：**
+⚠️ **But "no P0/P1 will appear" has a precondition — held by a person, not by the code:**
 
-| 前提 | 守不住会怎样 | 对应接缝 |
+| Precondition | What happens if it is not met | Seam |
 |---|---|---|
-| 不换数据；若换，必须重跑测试 + 重对锚点 | 新状态 / 新列 / 新日期 → P1 | ① |
-| AI 层只写文字、不碰数字 | LLM 直接算数 → P0 | ② |
-| PPT 每个数字都从 CSV 逐格抄、逐格核对 | 抄错 / 正负号错 → P0 | ③ |
+| Don't change the data; if you do, re-run tests + re-check the anchors | New status / new column / new date format → P1 | ① |
+| The AI layer only writes words, never touches numbers | LLM computes numbers → P0 | ② |
+| Every deck number is copied cell-by-cell from the CSV and re-checked | Wrong transcription / wrong sign → P0 | ③ |
 
-守住这三条，P0/P1 就不会出现；守不住，接缝③（PPT 抄数字）是当下最可能冒出 P0 的地方。
-
----
-
-## 一、先约定口径：什么叫「0 bug」
-
-「0 bug」这个词不能乱用。在这个项目里，它精确指：
-
-> **确定性引擎核心**（算钱的部分）在「**当前 6 张数据 + 88 个测试 + 100% 覆盖率**」这个前提下，
-> 所有已写出的代码路径都被执行过、且结果与验收锚点一致 —— 因此**没有已知 bug**。
-
-它**不等于**「数学上证明任何输入都不会出错」。诚实地说：
-
-- **100% 覆盖 = 每一行都至少跑过一次**，≠「每一行在所有可能输入下都正确」。
-- 我们能做到的「0 bug」，是有边界的：**同一份数据、同一套规则、同一个 Python 环境**。
-
-超出这个边界，就是下面第三节要讲的「接缝」。
+Hold these three, and P0/P1 won't appear; drop them, and seam ③ (transcribing deck numbers)
+is where a P0 is most likely to surface right now.
 
 ---
 
-## 二、P0 / P1 / P2 的定义（针对本项目）
+## 1. First, agree on the terms: what "zero bugs" means
 
-| 级别 | 含义 | 判断标准 |
+"Zero bugs" is not a phrase to use loosely. In this project it means precisely:
+
+> **The deterministic engine core** (the part that computes money), under the conditions
+> "**the current 6 data files + 88 tests + 100% coverage**", has all its written code paths
+> executed and its results matching the acceptance anchors — therefore **no known bug**.
+
+It does **not** mean "mathematically proven correct for any input". To be honest:
+
+- **100% coverage = every line ran at least once**, not "every line is correct under every possible input".
+- The "zero bugs" we can claim is **bounded**: same data, same rules, same Python environment.
+
+Beyond that boundary lies the "seams" in section 3.
+
+---
+
+## 2. What P0 / P1 / P2 mean (for this project)
+
+| Level | Meaning | Test |
 |---|---|---|
-| **P0** | 阻塞级：会直接「算错钱」或「交付失败」 | 财务数字错误、违反治理红线、跑不出报告 |
-| **P1** | 高风险：会动摇结果可信度，但不至于全盘错 | 异常归类错、边界值错、新数据解析错、环境跑不了 |
-| **P2** | 低风险：影响文字/体验，**不影响数字** | AI 文案、README 措辞、日志、注释 |
+| **P0** | Blocking: directly "computes money wrong" or "fails to deliver" | Financial number wrong, governance red line broken, report won't run |
+| **P1** | High: shakes trust in the result, but not wholly wrong | Wrong classification, wrong boundary value, wrong parse on new data, environment won't run |
+| **P2** | Low: affects wording/UX, **does not affect numbers** | AI prose, README wording, logs, comments |
 
-> 一句话记忆：**P0 是「数字错」，P1 是「归类/边界/环境错」，P2 是「话没写好」**。
+> In one line: **P0 is "the number is wrong", P1 is "classification / boundary / environment is
+> wrong", P2 is "the wording is off".**
 
 ---
 
-## 三、0 bug 的边界在哪里（核心回答）
+## 3. Where the zero-bug boundary is (the core answer)
 
-把整条流水线画成一条线，标出哪段已被测试锁死、哪段是风险接缝：
+Draw the pipeline as a line and mark which section is locked by tests and which are risk seams:
 
 ```
-[数据 CSV] → [load 解析] → [rate_card 查价] → [billing_rules 算应收费]
+[data CSVs] → [load parse] → [rate_card lookup] → [billing_rules compute expected]
       ↑                                              ↓
-   接缝①                                     [reconcile 对账]
-  （新数据）                                          ↓
-                                          [credit note 解决]
-                                                     ↓
-                                              [report 统计落盘]
-                                                     ↓
-    接缝②                                        [ai_layer 写文字]
-  （接真 LLM）                                        ↓
-                                                     ↓
-    接缝③                                      [PPT / 文档 手抄数字]
-  （人工抄写）
+   seam ①                                      [reconcile compare]
+  (new data)                                          ↓
+                                             [credit note resolve]
+                                                      ↓
+                                               [report stats + write]
+                                                      ↓
+   seam ②                                         [ai_layer write words]
+  (real LLM)                                           ↓
+                                                      ↓
+   seam ③                                      [deck / docs hand-copied numbers]
+  (human transcription)
 ```
 
-- ✅ **绿色区（已锁定 0 bug）**：`load → rate_card → billing_rules → reconcile → credit note → report 统计`
-  这一段就是「引擎核心」，被 88 个测试 + 100% 覆盖锁定，当前数据下无已知 bug。
-- ⚠️ **接缝①**：数据被替换成新数据的那一刻。
-- ⚠️ **接缝②**：`ai_layer` 从 mock 换成真 LLM 的那一刻。
-- ⚠️ **接缝③**：人把引擎输出的数字抄进 PPT / README 的那一刻。
+- ✅ **Green zone (locked, zero bugs)**: `load → rate_card → billing_rules → reconcile → credit
+  note → report stats`. This is the "engine core", locked by 88 tests + 100% coverage; no known bug
+  on the current data.
+- ⚠️ **Seam ①**: the moment the data is replaced by new data.
+- ⚠️ **Seam ②**: the moment `ai_layer` goes from mock to a real LLM.
+- ⚠️ **Seam ③**: the moment a person copies engine numbers into the deck / README.
 
 ---
 
-## 四、bug 可能从哪里开始出现（分级清单）
+## 4. Where bugs could start to appear (classified)
 
-### 接缝① —— 数据被替换（最高风险：新数据 = 新状态 = 新边界）
+### Seam ① — Data replaced (highest risk: new data = new states = new boundaries)
 
-**触发条件**：考官换成另一份 `movements.csv` / `billing_ledger.csv`，或改了 `rate_card.csv` / `assumptions.csv`。
+**Trigger**: the examiner swaps in a different `movements.csv` / `billing_ledger.csv`, or changes
+`rate_card.csv` / `assumptions.csv`.
 
-| 级别 | 可能 bug | 为什么会出现 | 后果 |
+| Level | Possible bug | Why | Consequence |
 |---|---|---|---|
-| **P1** | 出现我们没见过的 `status` 或 `charge_type` 值 | 引擎只对「已知枚举」做过分支测试，新枚举可能走错分支或漏判 | 归类错误 / 漏报 |
-| **P1** | 日期格式不同（如 `03/01/2026` vs `2026-03-01`） | `load.py` 的解析按当前格式写 | 解析报错或日期被当成错误值 |
-| **P1** | 列名不同 / 缺列 | 读表按 `DATA_DICTIONARY.md` 的列名硬对齐 | 直接 `KeyError` 崩溃 |
-| **P0** | `assumptions.csv` 的阈值/期间被改，但我们没重跑验收 | 治理红线要求「运行时读取」，改了就变，但数字会整体平移 | 财务数字全变、无法对上锚点 |
+| **P1** | A `status` or `charge_type` value we haven't seen | The engine only branch-tested the known enums; a new enum may take the wrong branch or be missed | Wrong classification / missed finding |
+| **P1** | Different date format (e.g. `03/01/2026` vs `2026-03-01`) | `load.py` parsing is written for the current format | Parse error or date misread |
+| **P1** | Different column names / missing columns | Table reads align to `DATA_DICTIONARY.md` column names | Direct `KeyError` crash |
+| **P0** | `assumptions.csv` thresholds/period changed but acceptance not re-run | Governance requires reading at run time; change it and everything shifts | Financial numbers all move, anchors no longer match |
 
-**防护**：跑 `python -m src.main` 后，用 `tests/test_end_to_end.py` 里的锚点数字 + 新增数据做一轮人工抽查。
+**Guard**: after `python -m src.main`, spot-check against the anchors in `tests/test_end_to_end.py`
+plus a manual sample of the new data.
 
 ---
 
-### 接缝② —— AI 层接真模型（当前是 mock，数字不受影响）
+### Seam ② — AI layer wired to a real model (currently mock, numbers unaffected)
 
-**现状**：`src/ai_layer.py` 是 mock，文字是写死的，**不碰数字**。所以当前它是 P2 甚至无风险。
+**Current state**: `src/ai_layer.py` is a mock with hard-coded text that **does not touch numbers**.
+So today it is P2 or no risk at all.
 
-**触发条件**：将来把 mock 换成真实 LLM 调用。
+**Trigger**: the mock is later replaced by a real LLM call.
 
-| 级别 | 可能 bug | 后果 |
+| Level | Possible bug | Consequence |
 |---|---|---|
-| **P2** | LLM 生成的文字措辞/格式不对 | 只影响可读性，不影响任何财务数字 |
-| **P1** | 调用失败 / 超时 / token 超限，导致 `summary.md` 生成中断 | 报告不完整，但 `exceptions.csv` 仍已写出 |
-| **P0** | ⚠️ 若让 LLM 直接「算数」或「改数字」 | 违反项目红线「AI 层只写文字、不碰数字」，直接算错钱 |
+| **P2** | LLM wording/formatting is off | Only affects readability, no financial figure changes |
+| **P1** | Call failure / timeout / token limit interrupts `summary.md` generation | Report incomplete, but `exceptions.csv` is already written |
+| **P0** | ⚠️ If the LLM is asked to "compute" or "change" numbers | Violates the red line "AI layer writes words, never touches numbers" → wrong money |
 
-**铁律**：AI 层永远只接收引擎算好的数字，只负责用文字解释。这条守住，接缝②就不会产生 P0。
+**Iron rule**: the AI layer always receives the engine's computed numbers and only explains them in
+words. Hold that line, and seam ② produces no P0.
 
 ---
 
-### 接缝③ —— 人工抄数字（考试时最高 P0 风险，但**不在代码测试范围内**）
+### Seam ③ — Human transcription (highest P0 risk at exam time, but outside code tests)
 
-**触发条件**：做 PPT、写 README、向考官口头汇报时，手动复制数字。
+**Trigger**: manually copying numbers when making the deck, writing the README, or presenting.
 
-| 级别 | 可能 bug | 后果 |
+| Level | Possible bug | Consequence |
 |---|---|---|
-| **P0** | PPT 里的数字和 `output/exceptions.csv` / `summary.md` 对不上（抄错、四舍五入错、看错正负号） | 考官会立刻发现「报告和代码不一致」，直接怀疑整份作品 |
-| **P0** | 把「净影响 -24,779.10」说成「应退 -24,779.10」或漏掉负号 | 口径错，财务含义反了 |
-| **P1** | 案例举例时引用的 `evidence_ref` / 金额与 CSV 某一行不符 | 被追问时无法对应到原始证据 |
+| **P0** | A deck number doesn't match `output/exceptions.csv` / `summary.md` (mis-copied, mis-rounded, wrong sign) | The examiner immediately sees "report and code disagree" and distrusts the whole work |
+| **P0** | Saying "net impact −24,779.10" as "owed −24,779.10" or dropping the sign | The financial meaning is reversed |
+| **P1** | A cited `evidence_ref` / amount doesn't match a specific CSV row | Can't be traced back to source evidence when challenged |
 
-**防护**：每个进 PPT 的数字，都要能**指向 CSV 里具体某一行**，并注明来源文件。建议用「PPT 数字抄写清单」逐格核对。
+**Guard**: every number that goes into the deck must point to a specific CSV row and note its source
+file. Use `PPT_PLAN.md` to check cell by cell.
 
 ---
 
-## 五、一句话总结
+## 5. One-line summary
 
-| 问题 | 答案 |
+| Question | Answer |
 |---|---|
-| 到哪个阶段是 0 bug？ | **引擎核心**（算钱那整段），在「当前数据 + 88 测试 + 100% 覆盖」前提下是 0 bug |
-| bug 从哪里开始出现？ | 三个接缝：**① 换新数据 ② AI 接真模型 ③ 人工抄数字** |
-| 最该警惕的是哪个？ | **接缝③（人工抄数字）**—— 它不在代码测试覆盖里，却是考官最直接看到的部分 |
-| 守住哪条红线最值钱？ | 「AI 层只写文字不碰数字」+「PPT 数字与引擎输出逐格一致」 |
+| Up to which stage are there zero bugs? | The **engine core** (the money-computing section), on the current data + 88 tests + 100% coverage |
+| Where do bugs start to appear? | Three seams: **① new data ② real LLM ③ human transcription** |
+| Which is the most to watch? | **Seam ③ (human transcription)** — outside code test coverage, yet the first thing an examiner sees |
+| Which red line is most worth holding? | "AI layer writes words, never numbers" + "deck numbers match engine output cell by cell" |

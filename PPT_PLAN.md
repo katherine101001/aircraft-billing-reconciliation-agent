@@ -1,225 +1,237 @@
-# PPT 制作清单（照抄即用）
+# Deck Plan (copy-ready)
 
-> 这份文件 = 你 12 页 PPT 的「逐页剧本 + 数字抄写表」。
-> 每个数字都已从**引擎真实输出**核对过（来源见每页右侧）。你只管照抄，不用再自己算。
-
----
-
-## 铁律（先读这 3 条，违反就扣分）
-
-1. **PPT 上每一个数字都必须来自引擎输出**（`output/exceptions.csv` + `output/summary.md`），禁止手打/四舍五入/凭感觉。
-2. **对账期间写 2026-01-01 ~ 2026-06-30**（快照期间，来自 `assumptions.csv`），**不能用「今天」的日期**。
-3. **别吹 AI**：AI 只写文字、不碰数字。这一条题目反复强调，说错直接扣「AI 集成质量」的分。
+> English version · 中文版见 [`PPT_PLAN_zh.md`](PPT_PLAN_zh.md)
+>
+> This file is the slide-by-slide script for your ≤12-slide deck, plus the numbers to copy.
+> Every number below has been checked against the **engine's real output** (source noted per slide).
+> Copy them as-is; don't recompute.
 
 ---
 
-## 数字速查表（全 PPT 的所有数字，一页抄全）
+## Golden rules (read first — breaking any of these loses points)
 
-| 指标 | 数字 | 来源文件 |
+1. **Every number on a slide must come from the engine output** (`output/exceptions.csv` +
+   `output/summary.md`). Never hand-type, re-round, or guess.
+2. **The reconciliation period is 2026-01-01 ~ 2026-06-30** (the snapshot period in
+   `assumptions.csv`). **Never use "today's" date.**
+3. **Don't oversell the AI**: the AI writes words only, never numbers. Saying otherwise directly
+   hurts the "AI integration quality" score.
+
+---
+
+## Number cheat-sheet (every number in the deck, in one table)
+
+| Metric | Value | Source file |
 |---|---|---|
-| 异常总数 | **92 条** | `output/summary.md` |
-| 净财务影响 | **-24,779.10 MYR**（负数=净多收，应退航司） | 同上 |
-| 漏收/少收（应补收，leakage） | **+58,824.70 MYR** | 同上 |
-| 多收/错收（应退航司，overbilling） | **-83,603.80 MYR** | 同上 |
-| 已被 credit note 解决 | **5 条** | 同上 |
-| 仍未解决敞口 | **87 条** | 同上 |
+| Total exceptions | **92** | `output/summary.md` |
+| Net financial impact | **-24,779.10 MYR** (negative = net over-billed, owed back to airlines) | same |
+| Under-billed / leakage (owed to operator) | **+58,824.70 MYR** | same |
+| Over-billed (owed back to airlines) | **-83,603.80 MYR** | same |
+| Resolved by credit note | **5** | same |
+| Still open | **87** | same |
 
-### 按异常类型分布（净额）
+### Breakdown by exception type (net)
 
-| 类型 | 中文含义 | 条数 | 净 MYR | 方向 |
+| Type | Plain meaning | Count | Net MYR | Direction |
 |---|---|---|---|---|
-| MISSING_CHARGE | 漏收（该收没开单） | 20 | +42,821.00 | 漏收 |
-| WRONG_RATE | 单价错 | 16 | +7,811.40 | 漏收 |
-| WRONG_AIRLINE | 开给错航司 | 7 | 0.00 | 中性（退款+重开） |
-| WRONG_QUANTITY | 数量错 | 14 | -411.50 | 多收 |
-| REMOTE_AEROBRIDGE | 远机位收廊桥费 | 6 | -6,600.00 | 多收 |
-| DIVERTED_OVERCHARGE | 备降多收 | 5 | -6,961.00 | 多收 |
-| CANCELLED_CHARGED | 取消航班仍收费 | 6 | -13,446.00 | 多收 |
-| DUPLICATE | 重复开单 | 8 | -16,332.00 | 多收 |
-| ORPHAN_CHARGE | 无对应起降的孤儿单 | 10 | -31,661.00 | 多收 |
+| MISSING_CHARGE | Charge due but never billed | 20 | +42,821.00 | leakage |
+| WRONG_RATE | Wrong unit rate | 16 | +7,811.40 | leakage |
+| WRONG_AIRLINE | Billed to the wrong airline | 7 | 0.00 | neutral (refund + rebill) |
+| WRONG_QUANTITY | Wrong quantity | 14 | -411.50 | over-billed |
+| REMOTE_AEROBRIDGE | Aerobridge charged on a remote stand | 6 | -6,600.00 | over-billed |
+| DIVERTED_OVERCHARGE | Diverted flight over-charged | 5 | -6,961.00 | over-billed |
+| CANCELLED_CHARGED | Cancelled flight still charged | 6 | -13,446.00 | over-billed |
+| DUPLICATE | Duplicate billing | 8 | -16,332.00 | over-billed |
+| ORPHAN_CHARGE | Billing line with no matching movement | 10 | -31,661.00 | over-billed |
 
-> ⚠️ **重要提醒（考官可能加总）**：上面「漏收 58,824.70 / 多收 83,603.80」是**逐条正/负金额求和**，而「按类型表」是**每类净额**，两者**不会逐项加总相等**——因为 WRONG_QUANTITY 里既有少开（正）也有多开（负），净额只显示 -411.50。若被问到，你回答：「总数是逐条求和，类型表是净额，二者口径不同，都是引擎同一份输出算的」。
-
----
-
-## 逐页清单（12 页）
-
-### 第 1 页｜标题 Title
-
-- **建议标题（英文）**：`Aircraft Billing & Movement Reconciliation`
-- **副标题**：`Finding every gap between the movement log and the billing ledger — and pricing it`
-- **署名 + 日期**：你的名字；日期可写实际汇报日（标题页的日期是「汇报日」，不是对账日，这条不违反红线）。
-- **口播（中文）**：一句话说清楚——「我做的系统，把机场的『实际起降记录』和『财务开单』两张表对起来，找出所有不一致，并算出每一处值多少钱。」
+> ⚠️ **Important (an examiner may add them up)**: the "leakage 58,824.70 / over-billing 83,603.80"
+> totals are **sums of individual positive/negative lines**, while the "by type" table shows **net
+> per type**, so the two won't reconcile line by line — because WRONG_QUANTITY contains both
+> under-billed (positive) and over-billed (negative) lines. If asked, say: "The totals are
+> per-line sums; the type table is net per type — two different cuts of the same engine output."
 
 ---
 
-### 第 2 页｜问题 The problem
+## Slide-by-slide (12 slides)
 
-- **标题**：`Two records that should agree — but don't`
-- **正文要点（英文，照抄）**：
+### Slide 1 — Title
+
+- **Title**: `Aircraft Billing & Movement Reconciliation`
+- **Subtitle**: `Finding every gap between the movement log and the billing ledger — and pricing it`
+- **Name + date**: your name; the date can be the presentation day (the title-slide date is a
+  presentation date, not a reconciliation date — this does not break the snapshot rule).
+- **Say**: a deterministic engine that compares the movement log against the billing ledger, finds
+  every mismatch, and prices each one.
+
+### Slide 2 — The problem
+
+- **Title**: `Two records that should agree — but don't`
+- **Bullets**:
   - Operations logs every aircraft movement; Finance keys in charges **by hand**.
   - The two should match exactly. They don't.
   - Missed or wrong charges → **revenue leakage** + **disputes airlines can't defend against**.
-- **可放一个具体对比**（用第 8 页案例）：
-  - 起降记录说：航班 KP8359，**298 名离港旅客**（国际）
-  - 账单里：**没有 PSC 这一行** → 白白漏收 **10,430.00 MYR**
-- **口播**：现在是手工对账，慢、容易错、出了问题拿不出证据。这就是「营收保障团队」每天头疼的事。
+- **Optional concrete contrast** (uses the Slide 8 example):
+  - Movement says: flight KP8359, **298 departing passengers** (international)
+  - Ledger: **no PSC line** → **10,430.00 MYR** simply unbilled.
+- **Say**: today it's manual, slow, error-prone, and when an airline disputes a charge, staff can't
+  easily pull the evidence that proves the movement happened as billed.
 
----
+### Slide 3 — Approach
 
-### 第 3 页｜方法 Approach
-
-- **标题**：`How it works: four steps`
-- **画一个简单流程（别写文字墙）**：
+- **Title**: `How it works: four steps`
+- **A simple flow (not a wall of text)**:
   ```
   Ingest  →  Reconcile  →  Explain  →  Report
-  读 6 表    算差异        AI 写文字    输出 CSV+总结
+  read 6 tables   compute gaps   AI writes words   CSV + summary
   ```
-- **要点**：
-  - **Ingest**：读 6 张表（起降、账单、费率卡、航司、credit note、假设）
-  - **Reconcile**：确定性引擎逐条比对，算出「应该收 vs 实际收」
-  - **Explain**：AI 把异常翻译成商业语言 + 起草退款说明
-  - **Report**：输出 `exceptions.csv` + `summary.md`
-- **口播**：重点是——**算钱的是确定性引擎，不是 AI**。AI 只负责把结果写成别人看得懂的话。
+- **Points**:
+  - **Ingest**: read 6 tables (movements, ledger, rate card, airlines, credit notes, assumptions)
+  - **Reconcile**: the deterministic engine compares "expected vs actual" line by line
+  - **Explain**: the AI translates each exception into business language + drafts a refund note
+  - **Report**: outputs `exceptions.csv` + `summary.md`
+- **Say**: the key point — **the numbers are computed by the deterministic engine, not the AI**.
+  The AI only makes the result readable.
 
----
+### Slide 4 — Headline result ⭐ (the slide they remember)
 
-### 第 4 页｜核心结果 Headline result ⭐（最该记住的一页）
+- **Title**: `92 discrepancies, -24,779.10 MYR net`
+- **Three big numbers (make them large)**:
+  - **92** exceptions
+  - **-24,779.10 MYR** net financial impact
+  - **5** resolved by credit note (87 still open)
+- **Supporting line**: under-billed +58,824.70 / over-billed -83,603.80
+- **Say**: the system found 92 discrepancies, with a net of **24,779.10 MYR owed back to airlines**
+  (the negative sign means we over-billed).
 
-- **标题**：`92 discrepancies, -24,779.10 MYR net`
-- **放 3 个大数字（越大越好）**：
-  - **92** 处异常
-  - **-24,779.10 MYR** 净财务影响
-  - **5** 条已被 credit note 解决（87 条待处理）
-- **补充一行**：漏收 +58,824.70 / 多收 -83,603.80
-- **口播**：整个系统跑下来，找到 92 处不一致，净影响是**该退给航司 24,779.10 MYR**（负号 = 多收了）。
+### Slide 5 — Where the money is
 
----
+- **Title**: `Leakage vs overbilling`
+- **Left column = leakage (unbilled, owed to operator)**:
+  - Total **+58,824.70 MYR**
+  - Led by: MISSING_CHARGE **+42,821.00**, WRONG_RATE **+7,811.40**
+- **Right column = overbilling (owed back to airlines)**:
+  - Total **-83,603.80 MYR**
+  - Led by: ORPHAN_CHARGE **-31,661.00**, DUPLICATE **-16,332.00**, CANCELLED_CHARGED **-13,446.00**
+- **One neutral**: WRONG_AIRLINE, 7 lines, net **0.00**, but needs **both** a refund and a rebill.
+- **Say**: we over-billed more than we under-billed, so the net is "money back". The single largest
+  bucket is orphan charges — billing lines that reference movements that don't exist.
 
-### 第 5 页｜钱在哪 Where the money is
+### Slide 6 — How the matching works
 
-- **标题**：`Leakage vs overbilling`
-- **左栏 = 漏收（leakage，该收没收）**：
-  - 合计 **+58,824.70 MYR**
-  - 大头：漏收 MISSING_CHARGE **+42,821.00**、单价错 WRONG_RATE **+7,811.40**
-- **右栏 = 多收（overbilling，该退航司）**：
-  - 合计 **-83,603.80 MYR**
-  - 大头：孤儿单 ORPHAN_CHARGE **-31,661.00**、重复单 DUPLICATE **-16,332.00**、取消仍收 CANCELLED_CHARGED **-13,446.00**
-- **一条中性**：错记航司 WRONG_AIRLINE 7 条、净 **0.00**，但要「退款 + 重开」两件事都做。
-- **口播**：多收的比漏收的还多，所以净结果是「退钱」。其中最大的一笔是「孤儿单」——账单里引用了根本不存在的起降记录。
+- **Title**: `The rules the engine applies`
+- **Bullets**:
+  - **Date-aware rates**: LANDING unit rate **12.00** before 03-31, **13.50** from 04-01 (read from
+    `rate_card.csv`, not hardcoded)
+  - **Derived quantities**: PARKING after a **60-minute grace**; AEROBRIDGE only on **CONTACT**
+    stands; PSC = departing pax × (domestic **11** / international **35**)
+  - **Tolerance**: a difference ≤ **0.05** is rounding, **not flagged**
+  - **Credit notes**: resolve only via exact `related_invoice_line_id` match + amount coverage
+- **Say**: this slide proves I didn't "get lucky" matching — each billing rule is understood,
+  including the easy-to-get-wrong ones: "diverted = landing only" and "remote = no aerobridge".
 
----
+### Slide 7 — The AI layer (key: make the boundary clear)
 
-### 第 6 页｜怎么配对的 How the matching works
+- **Title**: `The engine sets the numbers. The model writes the words.`
+- **What the AI does**:
+  - Translates an exception type into plain language (e.g. `MISSING_CHARGE` → "a charge that should
+    have been billed wasn't")
+  - Drafts a refund/dispute note a finance person could paste (citing the evidence ref)
+  - Writes the management summary
+- **What the AI does NOT do (bold this)**:
+  - ❌ **Does not decide the exception type**, ❌ **does not change any number**, ❌ **does not
+    compute the financial impact**
+- **Say**: this boundary is hard — the engine owns "is it right", the AI only owns "does it read
+  well". Even with no AI wired up (current mock), the numbers are fully correct.
 
-- **标题**：`The rules the engine applies`
-- **要点（英文照抄 + 中文自记）**：
-  - **Date-aware rates**：LANDING 单价 03-31 前 **12.00**，04-01 起 **13.50**（从 `rate_card.csv` 读，不硬编码）
-  - **Derived quantities**：PARKING 扣 **60 分钟宽限**；AEROBRIDGE 只有 **CONTACT 机位**才收；PSC 按离港旅客 ×（国内 **11** / 国际 **35**）
-  - **Tolerance**：差异 ≤ **0.05** 算舍入，**不报**
-  - **Credit notes**：只有 `related_invoice_line_id` 精确匹配 + 金额覆盖才算解决
-- **口播**：这页证明我不是「碰运气对上」，而是每条计费规则都吃透了——包括最容易错的「备降只收起降费」「远机位不收廊桥」。
+### Slide 8 — A worked example ⭐
 
----
+- **Title**: `One exception, end to end`
+- **Use this one (verified)**:
 
-### 第 7 页｜AI 层 The AI layer（关键：说清边界）
-
-- **标题**：`The engine sets the numbers. The model writes the words.`
-- **AI 做什么**：
-  - 把异常类型翻译成大白话（如 `MISSING_CHARGE` → 「该收的没开单」）
-  - 起草一封财务能直接发给航司的退款/争议说明（引用证据号）
-  - 写管理层总结
-- **AI 不做什么（加粗强调）**：
-  - ❌ **不决定异常类型**、❌ **不改任何数字**、❌ **不算财务影响**
-- **口播**：这条边界是硬性的——引擎负责「对不对」，AI 只负责「好不好读」。哪怕 AI 没接（现在是 mock），数字也完全正确。
-
----
-
-### 第 8 页｜一个真实案例 A worked example ⭐
-
-- **标题**：`One exception, end to end`
-- **用这一条（已核实）**：
-
-| 字段 | 值 | 来源 |
+| Field | Value | Source |
 |---|---|---|
-| 航班 | KP8359（Kinabalu Pacific，A350） | `movements.csv` |
-| 起降编号 | MOV00069 | 同上 |
-| 状态 / 机位 | COMPLETED / CONTACT | 同上 |
-| 离港旅客 | **298 人**，国际航线 | 同上 |
-| 该收 PSC | 298 × 35.00 = **10,430.00 MYR** | 费率卡 |
-| 账单里实际 | **无 PSC 行**（0.00） | `billing_ledger.csv` |
-| 差距 | **+10,430.00 MYR**（漏收） | `exceptions.csv` 第 2 行 |
-| 证据号 | **EVD-20260304-0069** | 同上 |
-| 判定 | **MISSING_CHARGE**，OPEN | 同上 |
+| Flight | KP8359 (Kinabalu Pacific, A350) | `movements.csv` |
+| Movement ID | MOV00069 | same |
+| Status / stand | COMPLETED / CONTACT | same |
+| Departing pax | **298**, international | same |
+| Expected PSC | 298 × 35.00 = **10,430.00 MYR** | rate card |
+| Billed | **no PSC line** (0.00) | `billing_ledger.csv` |
+| Gap | **+10,430.00 MYR** (unbilled) | `exceptions.csv` row 2 |
+| Evidence ref | **EVD-20260304-0069** | same |
+| Ruling | **MISSING_CHARGE**, OPEN | same |
 
-- **附 AI 草拟的英文说明（可直接贴进 PPT）**：
-  > Movement MOV00069 (flight KP8359) carried 298 departing international passengers on 2026-03-04, but no Passenger Service Charge was billed. Expected PSC is MYR 10,430.00 (298 × 35.00). No invoice line exists. We recommend raising a supplementary invoice for MYR 10,430.00. Evidence: EVD-20260304-0069.
-- **口播**：这就是「证据链」——从航班的起降记录，到费率卡，到账单缺了这一行，再到证据号，整条链可追溯，退款/补收都能站得住。
+- **AI-drafted note (paste into the slide)**:
+  > Movement MOV00069 (flight KP8359) carried 298 departing international passengers on
+  > 2026-03-04, but no Passenger Service Charge was billed. Expected PSC is MYR 10,430.00
+  > (298 × 35.00). No invoice line exists. We recommend raising a supplementary invoice for
+  > MYR 10,430.00. Evidence: EVD-20260304-0069.
+- **Say**: this is the "evidence chain" — from the movement record, to the rate card, to the missing
+  ledger line, to the evidence ref. The whole chain is traceable, so a refund or rebill is defensible.
 
----
+### Slide 9 — Trust & governance
 
-### 第 9 页｜可信与治理 Trust & governance
+- **Title**: `Why you can trust the output`
+- **Points**:
+  - **Zero hardcoding**: rates, thresholds, dates, and rules are read at run time from
+    `rate_card.csv` / `assumptions.csv`
+  - **Every number traceable**: each report figure maps to a specific row in `exceptions.csv`
+  - **Evidence attached**: every finding with a movement carries its evidence ref
+  - **Human sign-off**: the report is a recommendation; nothing reaches an airline without review
+- **Say**: money handling is never fully automatic. My system finds and prices the problem; whether
+  it goes to the airline is decided by a person signing off.
 
-- **标题**：`Why you can trust the output`
-- **要点**：
-  - **零硬编码**：费率、阈值、日期、规则全部运行时从 `rate_card.csv` / `assumptions.csv` 读
-  - **每个数字可追溯**：报告里每个数字都对应 `exceptions.csv` 里具体某一行
-  - **每条异常挂证据号**（有对应起降的）
-  - **人工签字**：报告是「建议」，发往航司前必须人工复核
-- **口播**：钱的事不能全自动。我的系统只做「找出问题 + 算出金额」，最后发不发给航司，**由人签字决定**。
+### Slide 10 — Limitations & assumptions
 
----
+- **Title**: `What I assumed, and where I'd be careful`
+- **Points (honesty scores here — don't oversell)**:
+  - The AI layer is currently a **mock** (templated text); the boundary is in place and a real model
+    drops in directly
+  - Only the **snapshot period 2026-01-01 ~ 2026-06-30** is reconciled; data outside is skipped
+  - Where the data differs from `DATA_DICTIONARY.md`, the dictionary governs; ambiguities are
+    written down in `assumptions.csv`
+  - Scope = the 6 CSVs; no real-time monitoring / dashboard (a nice-to-have, not required)
+- **Say**: the brief explicitly prefers "an honest partial solution over an over-claimed one" — I
+  put the unbuilt parts and assumptions on the table.
 
-### 第 10 页｜局限与假设 Limitations & assumptions
+### Slide 11 — What I'd do next
 
-- **标题**：`What I assumed, and where I'd be careful`
-- **要点（诚实分在这页，别吹）**：
-  - AI 层目前是 **mock**（写死的模板文案），边界已留好、真模型可直接替换
-  - 只对账**快照期间 2026-01-01 ~ 2026-06-30**，期间外的数据跳过
-  - 数据若与 `DATA_DICTIONARY.md` 不一致，按字典为准；有歧义时在 `assumptions.csv` 里写明假设
-  - 覆盖范围 = 6 张 CSV；没有做实时监控/dashboard（属加分项，非必需）
-- **口播**：题目明确说「诚实的局部解 > 吹过头的完整解」。我把没做的和假设都摆出来，这是加分项。
+- **Title**: `Week two, I would…`
+- **Points**:
+  - **Wire a real LLM**: replace the mock so refund notes auto-generate (boundary unchanged)
+  - **Evaluation harness**: 88 tests + 100% coverage already; add a golden set of expected
+    exceptions for regression
+  - **Per-airline dispute pack**: group one carrier's open exceptions into a single export
+  - **A small dashboard**: one HTML page to browse exceptions by airline/type
+- **Say**: the core is solid; what's next is hardening and usability, not a rewrite.
 
----
+### Slide 12 — Close
 
-### 第 11 页｜下一步 What I'd do next
-
-- **标题**：`Week two, I would…`
-- **要点**：
-  - **接真 LLM**：把 mock 换成真实模型，让退款说明自动生成（边界不变）
-  - **评估 harness**：已有 88 个测试 + 100% 覆盖，再补「黄金标准异常集」做回归
-  - **Per-airline dispute pack**：把每家航司的未解决异常打包成一个导出
-  - **简易 dashboard**：一个 HTML 页按航司/类型浏览异常
-- **口播**：核心已经稳了，接下来是「加固 + 易用」，不是「重写」。
-
----
-
-### 第 12 页｜收尾 Close
-
-- **标题（一句话 takeaway，可照抄）**：
-  > `The movement log and the ledger can now be reconciled in minutes — 92 discrepancies found, every one priced and evidenced.`
-- **口播**：给我一个起降记录和一个账单，我还你一份「每条都算好钱、附好证据」的差异清单。
-
----
-
-## 提交前核对清单（做完 PPT 逐条打钩）
-
-- [ ] 92、-24,779.10、58,824.70、83,603.80、5 —— 这 5 个数字和 `output/summary.md` 一字不差
-- [ ] 类型表里 9 类的条数/净额，和 `output/summary.md` 逐项一致
-- [ ] 第 8 页案例：MOV00069 / 298 人 / 10,430.00 / EVD-20260304-0069，和 `exceptions.csv` 第 2 行一致
-- [ ] 全片没有出现「今天」的日期，对账期间统一写 2026-01-01 ~ 2026-06-30
-- [ ] 任何地方都没出现「AI 算出了某个数字」的说法（AI 只写文字）
-- [ ] 页数 ≤ 12
-- [ ] 导出为 PDF 或 PPTX
+- **Title (one-line takeaway, copy-ready)**:
+  > `The movement log and the ledger can now be reconciled in minutes — 92 discrepancies found,
+  > every one priced and evidenced.`
+- **Say**: give me a movement log and a ledger, and I'll return a list of differences — each priced,
+  each evidenced.
 
 ---
 
-## 扣分红线（`Presentation_Guide.md` 原文对应的坑）
+## Pre-submission checklist (tick each one)
 
-| 会扣分的 | 对应哪页 | 怎么避免 |
+- [ ] The five numbers 92, -24,779.10, 58,824.70, 83,603.80, 5 match `output/summary.md` exactly
+- [ ] The 9 type counts/net amounts match `output/summary.md` line by line
+- [ ] Slide 8 example: MOV00069 / 298 pax / 10,430.00 / EVD-20260304-0069 matches `exceptions.csv` row 2
+- [ ] No "today's" date anywhere; the period is consistently 2026-01-01 ~ 2026-06-30
+- [ ] Nowhere does it claim "the AI computed a number" (the AI writes words only)
+- [ ] ≤ 12 slides
+- [ ] Exported as PDF or PPTX
+
+---
+
+## What loses points (`Presentation_Guide.md`)
+
+| Loses points | Which slide | How to avoid |
 |---|---|---|
-| 硬编码 / 无法解释的数字 | 第 4、5 页 | 每个数字标来源文件 |
-| 讲工具比讲结果还多 | 第 3 页 | 图要简单，一句话带过 |
-| 吹 AI 能做它做不到的事 | 第 7 页 | 明确「AI 不碰数字」 |
-| 藏数字来源 | 全片 | 每页右下角标「来源：output/xxx」 |
-| 漂亮但没干货 | 全片 | 每页都有「口播」里的一句话可落地 |
+| Hardcoded / unexplained figures | 4, 5 | Note the source file for every number |
+| More slides about tools than findings | 3 | Keep the diagram simple, one sentence |
+| Claiming the AI does what it can't | 7 | State clearly "the AI never touches numbers" |
+| Hiding where numbers came from | all | Footnote "source: output/xxx" per slide |
+| Polished but nothing actionable | all | Every slide has a one-line takeaway you can act on |

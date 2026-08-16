@@ -1,41 +1,60 @@
-# AI 使用日志（AI Usage Log）
+# AI Usage Log
 
-> 题目要求：记录用了什么工具、干什么，以及「AI 说错 / 没用、我怎么发现并纠正」的时刻。
-> 本文同时记录 Claude Code 在开发本系统过程中犯过的错，供复盘。
+> English version · 中文版见 [`AI_USAGE_LOG_zh.md`](AI_USAGE_LOG_zh.md)
+>
+> The brief asks: which tools you used, for what, and one or two moments where the AI was wrong or
+> unhelpful and how you caught it. This file records the mistakes Claude Code made while developing
+> this system, for review.
 
-## 用了什么、干什么
+## Tools used, and for what
 
-- **工具**：Claude Code（Claude，deepseek-v4-pro 后端）
-- **用途**：
-  1. 通读全部文档与数据，梳理计费规则、差异类型、数据陷阱；
-  2. 编写对账引擎（Python + pandas）共 7 个模块；
-  3. 运行并验证结果，逐类核对异常清单；
-  4. 编写本日志与 CLAUDE.md。
+- **Tool**: Claude Code (Claude, deepseek-v4-pro backend)
+- **Used for**:
+  1. Reading all documents and data, mapping out billing rules, discrepancy types, and data pitfalls;
+  2. Writing the reconciliation engine (Python + pandas), 7 modules in total;
+  3. Running and verifying the results, checking the exception list type by type;
+  4. Writing this log and CLAUDE.md.
 
-## AI 犯过的错（及怎么发现的）
+## Mistakes the AI made (and how each was caught)
 
-### 错误 1：`9999-12-31` 日期哨兵值导致解析崩溃
-- **现象**：`rate_card.csv` 里 `effective_to` 用 `9999-12-31` 表示「开放结束」，pandas 的 `pd.to_datetime` 用纳秒时间戳，上限只有 2262 年，直接抛 `OutOfBoundsDatetime`。
-- **怎么发现**：第一次运行 `python -m src.main` 立刻报错。
-- **纠正**：改用 Python 原生 `datetime.date.fromisoformat` 解析费率卡的日期窗口，避开 pandas 的时间戳上限。
-- **教训**：哨兵日期（9999-12-31 / 0000-00-00）在数据里很常见，解析日期前先想清楚底层表示范围。
+### Mistake 1: `9999-12-31` date sentinel crashed the parser
+- **What happened**: `rate_card.csv` uses `9999-12-31` in `effective_to` to mean "open-ended".
+  pandas' `pd.to_datetime` uses nanosecond timestamps, whose upper limit is year 2262, so it threw
+  `OutOfBoundsDatetime`.
+- **How I caught it**: the first `python -m src.main` run errored immediately.
+- **Fix**: parse the rate card's date windows with Python's native `datetime.date.fromisoformat`
+  to sidestep the pandas timestamp limit.
+- **Lesson**: sentinel dates (9999-12-31 / 0000-00-00) are common in real data — before parsing a
+  date, think about the underlying representation's range.
 
-### 错误 2：Windows 控制台打印中文报 `UnicodeEncodeError`
-- **现象**：引擎已正确产出结果，但 `print(summary)` 时控制台编码是 cp1252，无法编码中文/货币符号。
-- **怎么发现**：运行时报 `UnicodeEncodeError: 'charmap' codec ...`。
-- **纠正**：入口处 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`。
-- **教训**：文件写入用 `encoding="utf-8"`，但 stdout 在 Windows 默认不是 UTF-8，两者要分开处理。
+### Mistake 2: Windows console threw `UnicodeEncodeError` on Chinese/currency symbols
+- **What happened**: the engine produced correct results, but `print(summary)` failed because the
+  console encoding was cp1252, which cannot encode Chinese characters or currency symbols.
+- **How I caught it**: the run raised `UnicodeEncodeError: 'charmap' codec ...`.
+- **Fix**: at the entry point, `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`.
+- **Lesson**: file writes use `encoding="utf-8"`, but stdout on Windows is not UTF-8 by default —
+  the two must be handled separately.
 
-### 错误 3（最关键）：错记航司被重复计数 —— 业务逻辑 bug
-- **现象**：初版引擎对「费用开错航空公司」的情况报了两条异常：
-  1. `MISSING_CHARGE`（正确航司的这笔费「漏收」了）；
-  2. `WRONG_AIRLINE`（这笔费开到了错误航司）。
-  结果同一个问题算了两遍，净财务影响被高估了 21,861 MYR。
-- **为什么错**：对账逻辑把「漏收」和「错记航司」当成两个独立方向，但题目明确说错记航司应「算 1 条异常、净影响 0」，退款给错航司 + 重开给正确航司，钱并没有漏。
-- **怎么发现**：不是运行报错，而是**人工逐行核对 `exceptions.csv`** 时，发现同一 `movement_id` 同时出现 `MISSING_CHARGE` 和 `WRONG_AIRLINE` 两条。这是「结果看着正常、其实错了」的典型。
-- **纠正**：行级检查时记录被错记航司的费用类型，集合级做「漏收」判断时跳过这些类型。
-- **教训**：对账类任务里，异常类型之间可能存在**互斥/归属关系**，单看每类都对不代表整体对，必须回头检查「同一笔事实有没有被重复归类」。
+### Mistake 3 (the important one): wrong-airline cases were double-counted — a business-logic bug
+- **What happened**: the first version of the engine reported **two** exceptions for a charge billed
+  to the wrong airline:
+  1. `MISSING_CHARGE` (the correct airline "didn't get billed" for that charge);
+  2. `WRONG_AIRLINE` (the charge went to the wrong airline).
+  The same problem was counted twice, and net financial impact was overstated by 21,861 MYR.
+- **Why it was wrong**: the logic treated "missed charge" and "wrong airline" as two independent
+  directions, but the brief says a wrong-airline charge is **one exception with net impact 0**:
+  refund the wrongly-billed airline and rebill the correct one — no money is actually lost.
+- **How I caught it**: not via a crash — by **manually reviewing `exceptions.csv` line by line** and
+  noticing the same `movement_id` appearing with both `MISSING_CHARGE` and `WRONG_AIRLINE`. This is
+  the classic "result looks fine but is actually wrong" case.
+- **Fix**: record the charge types affected by a wrong airline at line level, and skip those types
+  in the set-level "missed charge" check.
+- **Lesson**: in reconciliation work, exception types can be **mutually exclusive / have ownership
+  relationships**. Each type looking right in isolation does not mean the whole is right — you must
+  go back and check that the same fact has not been classified twice.
 
-## 一句话总结
+## One-line summary
 
-> 跑通 ≠ 正确。两次真正的 bug 都不是程序崩溃，而是「数字看着对但语义错了」——要靠回头核对自己的输出、对照业务规则逐条验证才能抓到。
+> "Runs without crashing" ≠ "correct". The two real bugs were not crashes — they were "the numbers
+> look right but the semantics are wrong" — and they could only be caught by reviewing my own output
+> against the business rules, one line at a time.
