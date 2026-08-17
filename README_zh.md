@@ -1,6 +1,4 @@
-# Aircraft Billing & Movement Reconciliation Agent
-
-> 🇨🇳 中文版（Chinese version）｜英文版见 [`README.md`](README.md)。
+# 飞机计费与起降对账系统（中文版）
 
 一个**确定性对账引擎**：比对机场起降日志（`movements.csv`）与财务开单（`billing_ledger.csv`），
 找出每一处差异、量化财务影响（MYR）、挂接证据引用，并由 AI 层把结果写成可交付的文字。

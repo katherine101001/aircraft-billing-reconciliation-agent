@@ -1,7 +1,5 @@
 # BUG 优先级清单（P0 / P1 / P2）
 
-> 🇨🇳 中文版（Chinese version）｜英文版见 [`BUG_PRIORITY.md`](BUG_PRIORITY.md)。
-
 > 目的：回答两个问题 ——
 > 1. 「以目前的测试，到哪个阶段是 0 bug？」
 > 2. 「从哪里开始才可能出 bug？」

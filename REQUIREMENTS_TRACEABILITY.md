@@ -1,7 +1,5 @@
 # Requirements Traceability
 
-> English version · 中文版见 [`REQUIREMENTS_TRACEABILITY_zh.md`](REQUIREMENTS_TRACEABILITY_zh.md)
->
 > A "map" for the reviewer: each hard requirement in `Case_Study_Brief.md` → the exact file and
 > function that implements it. Indexed by `module.function`; line numbers are for orientation.
 > All requirements are complete — no hard requirement is unimplemented.

@@ -1,7 +1,5 @@
 # Deck Plan (copy-ready)
 
-> English version · 中文版见 [`PPT_PLAN_zh.md`](PPT_PLAN_zh.md)
->
 > This file is the slide-by-slide script for your ≤12-slide deck, plus the numbers to copy.
 > Every number below has been checked against the **engine's real output** (source noted per slide).
 > Copy them as-is; don't recompute.

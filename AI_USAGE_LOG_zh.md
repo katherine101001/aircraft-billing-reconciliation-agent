@@ -1,7 +1,5 @@
 # AI 使用日志（AI Usage Log）
 
-> 🇨🇳 中文版（Chinese version）｜英文版见 [`AI_USAGE_LOG.md`](AI_USAGE_LOG.md)。
-
 > 题目要求：记录用了什么工具、干什么，以及「AI 说错 / 没用、我怎么发现并纠正」的时刻。
 > 本文同时记录 Claude Code 在开发本系统过程中犯过的错，供复盘。
 

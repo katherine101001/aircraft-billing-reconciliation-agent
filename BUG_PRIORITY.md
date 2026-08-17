@@ -1,7 +1,5 @@
 # Bug Priority List (P0 / P1 / P2)
 
-> English version · 中文版见 [`BUG_PRIORITY_zh.md`](BUG_PRIORITY_zh.md)
->
 > Purpose: answer two questions —
 > 1. "Given the current tests, up to which stage are there zero bugs?"
 > 2. "Where could bugs start to appear?"

@@ -1,7 +1,5 @@
 # 需求 → 代码对照清单（Requirements Traceability）
 
-> 🇨🇳 中文版（Chinese version）｜英文版见 [`REQUIREMENTS_TRACEABILITY.md`](REQUIREMENTS_TRACEABILITY.md)。
-
 > 给考官看的「寻路地图」：题目 `Case_Study_Brief.md` 的每一条硬性要求，
 > 在代码里具体落在哪个文件、哪个函数。按「模块.函数」索引，行号为辅助定位。
 > 全部要求均已完成，无未实现的硬性项。

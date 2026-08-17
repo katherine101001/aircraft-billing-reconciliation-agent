@@ -1,7 +1,5 @@
 # Aircraft Billing & Movement Reconciliation Agent
 
-> English version · 中文版见 [`README_zh.md`](README_zh.md)
-
 A **deterministic reconciliation engine** that compares the airport movement log (`movements.csv`)
 against the billing ledger (`billing_ledger.csv`), finds every discrepancy, quantifies the
 financial impact (MYR), attaches an evidence reference, and lets the AI layer turn the results
@@ -37,9 +35,6 @@ candidate_pack/
 ├── .env.example
 └── README.md
 ```
-
-> Docs are bilingual: the `_zh.md` files are the Chinese versions of the same document
-> (e.g. `README_zh.md`, `REQUIREMENTS_TRACEABILITY_zh.md`).
 
 ---
 

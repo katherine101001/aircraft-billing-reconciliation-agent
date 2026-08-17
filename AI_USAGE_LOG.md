@@ -1,7 +1,5 @@
 # AI Usage Log
 
-> English version · 中文版见 [`AI_USAGE_LOG_zh.md`](AI_USAGE_LOG_zh.md)
->
 > The brief asks: which tools you used, for what, and one or two moments where the AI was wrong or
 > unhelpful and how you caught it. This file records the mistakes Claude Code made while developing
 > this system, for review.
