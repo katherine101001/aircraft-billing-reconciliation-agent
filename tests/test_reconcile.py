@@ -1,7 +1,8 @@
-"""对账主循环 reconcile 的边界测试：逐类异常 + 关键互斥关系。
+"""Boundary tests for the reconcile main loop: each exception type + the key mutual-exclusion.
 
-覆盖：11 类异常中的 9 类（本数据集实际出现的），以及
-「错记航司不能同时算漏收」这个最容易出错的互斥逻辑、容差边界、期间过滤、符号约定。
+Covers: 9 of the 11 exception types (the ones actually present in this dataset), the
+easy-to-get-wrong "wrong airline must not also count as missed" mutual exclusion, the
+tolerance boundary, period filtering, and the sign convention.
 """
 from __future__ import annotations
 
@@ -16,14 +17,14 @@ def _run(movements, ledger, **asmp):
 
 
 def test_missing_charge():
-    # 该收 LANDING 4944，但账单里没有任何行
+    # LANDING 4944 is due, but there are no ledger lines at all
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
     exc = _run([m], [])
     miss = by_type(exc, "MISSING_CHARGE")
     assert len(miss) == 1
     assert miss[0]["charge_type"] == "LANDING"
     assert miss[0]["financial_impact_myr"] == 4944.00
-    assert miss[0]["evidence_ref"] == "EVD-TEST-001"  # 必须挂证据号
+    assert miss[0]["evidence_ref"] == "EVD-TEST-001"  # must carry an evidence ref
 
 
 def test_wrong_rate():
@@ -43,7 +44,7 @@ def test_wrong_quantity():
 
 
 def test_wrong_amount():
-    # 单价对、数量对，但金额算错 —— 这是真实数据里未出现的那一类
+    # Rate and quantity right, but amount wrong — the type that doesn't appear in the real data
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
     line = make_line(charge_type="LANDING", quantity=412, unit_rate=12.00, amount_billed=4950.00)
     wa = by_type(_run([m], [line]), "WRONG_AMOUNT")
@@ -59,7 +60,7 @@ def test_duplicate():
                    unit_rate=12.00, amount_billed=4944.00)
     dup = by_type(_run([m], [l1, l2]), "DUPLICATE")
     assert len(dup) == 1
-    assert dup[0]["invoice_line_id"] == "BL-B"  # 第 2 行算重复
+    assert dup[0]["invoice_line_id"] == "BL-B"  # the 2nd line is the duplicate
     assert dup[0]["financial_impact_myr"] == -4944.00
 
 
@@ -72,29 +73,29 @@ def test_orphan_charge():
 
 
 def test_wrong_airline_net_zero_and_not_double_counted():
-    # 该收的 LANDING 被开到了 QC 头上：只算 1 条异常，净影响 0，且不能同时报漏收
-    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)  # 航司 FX
+    # The due LANDING was billed to QC: only 1 exception, net impact 0, and must not also be reported as missed
+    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)  # airline FX
     line = make_line(airline_code="QC", charge_type="LANDING", quantity=412,
                      unit_rate=12.00, amount_billed=4944.00)
     exc = _run([m], [line])
-    assert len(exc) == 1, f"期望 1 条，实际 {len(exc)} 条（错记航司被重复计数了）"
+    assert len(exc) == 1, f"expected 1, got {len(exc)} (wrong airline was double-counted)"
     wa = by_type(exc, "WRONG_AIRLINE")[0]
     assert wa["financial_impact_myr"] == 0.0
     assert wa["billed_airline_code"] == "QC"
-    assert by_type(exc, "MISSING_CHARGE") == []  # 关键互斥断言
+    assert by_type(exc, "MISSING_CHARGE") == []  # key mutual-exclusion assertion
 
 
 def test_wrong_airline_plus_genuine_missing():
-    # 同一航班：LANDING 开错航司，同时 PARKING/AEROBRIDGE 真的漏收
+    # Same movement: LANDING billed to the wrong airline, while PARKING/AEROBRIDGE are genuinely missed
     m = make_movement(stand_type="CONTACT", pax_departing=0,
                       arrival_datetime=datetime(2026, 3, 1, 14, 0),
-                      departure_datetime=datetime(2026, 3, 1, 17, 0))  # 180 分钟
+                      departure_datetime=datetime(2026, 3, 1, 17, 0))  # 180 minutes
     line = make_line(airline_code="QC", charge_type="LANDING", quantity=412,
                      unit_rate=12.00, amount_billed=4944.00)
     exc = _run([m], [line])
     assert by_type(exc, "WRONG_AIRLINE")[0]["charge_type"] == "LANDING"
     missing_types = [e["charge_type"] for e in by_type(exc, "MISSING_CHARGE")]
-    assert set(missing_types) == {"PARKING", "AEROBRIDGE"}  # 只漏这两类，LANDING 不算漏
+    assert set(missing_types) == {"PARKING", "AEROBRIDGE"}  # only these two are missed; LANDING is not
 
 
 def test_cancelled_charged():
@@ -106,7 +107,7 @@ def test_cancelled_charged():
 
 
 def test_remote_aerobridge():
-    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)  # 期望只有 LANDING
+    m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)  # only LANDING expected
     land = make_line(invoice_line_id="BL-LAND", charge_type="LANDING", quantity=412,
                      unit_rate=12.00, amount_billed=4944.00)
     bridge = make_line(invoice_line_id="BL-BRIDGE", charge_type="AEROBRIDGE", quantity=2,
@@ -114,12 +115,12 @@ def test_remote_aerobridge():
     ra = by_type(_run([m], [land, bridge]), "REMOTE_AEROBRIDGE")
     assert len(ra) == 1
     assert ra[0]["financial_impact_myr"] == -240.00
-    assert by_type(_run([m], [land, bridge]), "MISSING_CHARGE") == []  # LANDING 已正确开单
+    assert by_type(_run([m], [land, bridge]), "MISSING_CHARGE") == []  # LANDING is already billed correctly
 
 
 def test_diverted_overcharge():
     m = make_movement(status="DIVERTED", stand_type="REMOTE", pax_departing=0,
-                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 120 分钟
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 120 minutes
     land = make_line(invoice_line_id="BL-LAND", charge_type="LANDING", quantity=411,
                      unit_rate=12.00, amount_billed=4932.00)
     park = make_line(invoice_line_id="BL-PARK", charge_type="PARKING", quantity=4,
@@ -131,7 +132,7 @@ def test_diverted_overcharge():
 
 
 def test_psc_on_cargo():
-    m = make_movement(pax_departing=0, stand_type="REMOTE")  # 货机：0 旅客
+    m = make_movement(pax_departing=0, stand_type="REMOTE")  # cargo: 0 passengers
     land = make_line(invoice_line_id="BL-LAND", charge_type="LANDING", quantity=411,
                      unit_rate=12.00, amount_billed=4932.00)
     psc = make_line(invoice_line_id="BL-PSC", charge_type="PSC", quantity=50,
@@ -142,14 +143,14 @@ def test_psc_on_cargo():
 
 
 def test_tolerance_at_boundary_not_flagged():
-    # 差异正好 0.05 → 视为舍入，不报
+    # difference exactly 0.05 → treated as rounding, not flagged
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
     line = make_line(charge_type="LANDING", quantity=412, unit_rate=12.00, amount_billed=4944.05)
     assert _run([m], [line]) == []
 
 
 def test_tolerance_just_over_boundary_flagged():
-    # 差异 0.06 > 0.05 → 报，且单价、数量都对，判定为 WRONG_AMOUNT
+    # difference 0.06 > 0.05 → flagged, and with rate+quantity both right it's WRONG_AMOUNT
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
     line = make_line(charge_type="LANDING", quantity=412, unit_rate=12.00, amount_billed=4944.06)
     wa = by_type(_run([m], [line]), "WRONG_AMOUNT")
@@ -158,7 +159,7 @@ def test_tolerance_just_over_boundary_flagged():
 
 
 def test_tolerance_is_read_from_assumptions_not_hardcoded():
-    # 把容差临时改成 0，则 0.05 的差异会从「舍入」变成「异常」→ 证明是运行时读的
+    # Set tolerance to 0 temporarily: the 0.05 gap flips from "rounding" to "exception" → proves it's read at runtime
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0)
     line = make_line(charge_type="LANDING", quantity=412, unit_rate=12.00, amount_billed=4944.05)
     wa = by_type(_run([m], [line], amount_tolerance="0"), "WRONG_AMOUNT")
@@ -166,13 +167,13 @@ def test_tolerance_is_read_from_assumptions_not_hardcoded():
 
 
 def test_movement_outside_period_is_skipped():
-    m = make_movement(arrival_datetime=datetime(2025, 12, 31, 14, 30))  # 期间外
-    line = make_line(charge_type="LANDING", amount_billed=99999.00)  # 明显错
-    assert _run([m], [line]) == []  # 期间外，完全跳过
+    m = make_movement(arrival_datetime=datetime(2025, 12, 31, 14, 30))  # outside the period
+    line = make_line(charge_type="LANDING", amount_billed=99999.00)  # obviously wrong
+    assert _run([m], [line]) == []  # outside the period, fully skipped
 
 
 def test_financial_impact_sign_convention():
-    # 漏收 → 正（应补收）；多收/错收 → 负（应退）
+    # missed → positive (to collect); over/wrong → negative (to refund)
     m_miss = make_movement(movement_id="MOV-MISS", mtow_tonnes=412.0,
                            stand_type="REMOTE", pax_departing=0)
     miss = by_type(_run([m_miss], []), "MISSING_CHARGE")[0]
@@ -186,10 +187,10 @@ def test_financial_impact_sign_convention():
 
 
 def test_clean_movement_no_exception():
-    # COMPLETED + 4 种费用全部正确开单 → 0 异常（证明无误报）
+    # COMPLETED with all 4 charges billed correctly → 0 exceptions (proves no false alarm)
     m = make_movement(mtow_tonnes=412.0, stand_type="CONTACT",
                       arrival_datetime=datetime(2026, 3, 1, 14, 0),
-                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 150 分钟
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 150 minutes
     lines = [
         make_line(invoice_line_id="BL-L", charge_type="LANDING", quantity=412,
                   unit_rate=12.00, amount_billed=4944.00),
@@ -208,18 +209,18 @@ def test_three_duplicates_two_flagged():
     lines = [make_line(invoice_line_id=f"BL-{i}", charge_type="LANDING", quantity=412,
                        unit_rate=12.00, amount_billed=4944.00) for i in range(3)]
     dup = by_type(_run([m], lines), "DUPLICATE")
-    assert len(dup) == 2  # 第 2、3 行是重复
+    assert len(dup) == 2  # the 2nd and 3rd lines are duplicates
 
 
 def test_cancelled_with_no_ledger_no_exception():
     m = make_movement(status="CANCELLED", stand_type="REMOTE", pax_departing=0)
-    assert _run([m], []) == []  # 取消 + 无账单 → 无异常（不算漏收）
+    assert _run([m], []) == []  # cancelled + no ledger → no exception (not counted as missed)
 
 
 def test_multiple_charge_types_mixed():
-    # LANDING 单价错 + PARKING 漏收同时发生 → 两条不同类型异常
+    # LANDING wrong rate + PARKING missed at the same time → two exceptions of different types
     m = make_movement(mtow_tonnes=412.0, stand_type="REMOTE", pax_departing=0,
-                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 120 分钟 → 停车 32
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 120 minutes → parking 32
     line = make_line(charge_type="LANDING", quantity=412, unit_rate=10.00, amount_billed=4120.00)
     exc = _run([m], [line])
     assert len(by_type(exc, "WRONG_RATE")) == 1

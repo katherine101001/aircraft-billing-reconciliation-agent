@@ -1,4 +1,4 @@
-"""config.py 的边界测试：读取 assumptions + 强类型解析辅助函数。"""
+"""Boundary tests for config.py: reading assumptions + the strongly-typed parse helpers."""
 from __future__ import annotations
 
 from datetime import date

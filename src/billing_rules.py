@@ -1,18 +1,18 @@
-"""计费规则：给定一次起降，算出「应该收取」的每一项费用。
+"""Billing rules: given a movement, compute every charge that *should* apply.
 
-这是整个系统的核心。规则全部来自 rate_card + assumptions，
-这里不出现任何硬编码的业务数字。
+This is the core of the system. The rules all come from rate_card + assumptions;
+no business number is hardcoded here.
 
-4 种费用（单价一律从 rate_card 查，此处不写死数值）：
-  LANDING     数量 = ceil(mtow_tonnes)，单价按到达日期取
-  PARKING     数量 = ceil(超出免费时长的分钟 / 15)，单价见 rate_card
-  AEROBRIDGE  数量 = ceil(停留分钟 / 60)，仅 CONTACT 机位，单价见 rate_card
-  PSC         数量 = 离港旅客数，单价按 DOMESTIC/INTERNATIONAL 取
+4 charge types (unit rates are always looked up from rate_card, never written here):
+  LANDING     quantity = ceil(mtow_tonnes), unit rate taken by arrival date
+  PARKING     quantity = ceil(minutes beyond the free grace / 15), rate from rate_card
+  AEROBRIDGE  quantity = ceil(duration minutes / 60), CONTACT stands only, rate from rate_card
+  PSC         quantity = departing pax, rate by DOMESTIC/INTERNATIONAL
 
-状态规则（先于上面判断）：
-  CANCELLED   不计费
-  DIVERTED    只收起降费 LANDING
-  COMPLETED   正常计费
+Status rules (checked before the above):
+  CANCELLED   no charges
+  DIVERTED    landing charge only
+  COMPLETED   billed normally
 """
 from __future__ import annotations
 
@@ -23,19 +23,19 @@ from .rate_card import lookup_rate
 
 
 def compute_expected_charges(movement: dict, rate_df, assumptions: dict) -> list[dict]:
-    """返回该 movement 应该产生的费用列表。
+    """Return the list of charges this movement *should* incur.
 
-    每项形如 {charge_type, quantity, unit_rate, amount}，amount 保留 2 位小数。
-    返回空列表表示该 movement 不应产生任何费用（如 CANCELLED）。
+    Each item is {charge_type, quantity, unit_rate, amount}; amount kept to 2 decimals.
+    An empty list means the movement should incur nothing (e.g. CANCELLED).
     """
     status = movement["status"]
     billable = as_enum_set(assumptions, "billable_statuses")
     if status not in billable:
-        return []  # CANCELLED 等不可计费状态
+        return []  # CANCELLED and other non-billable statuses
 
     arrival = movement["arrival_datetime"]
     departure = movement["departure_datetime"]
-    # 停留时长（分钟），跨天也正确
+    # Duration in minutes (correct even across midnight)
     dur_min = (departure - arrival).total_seconds() / 60.0
     arrival_date = arrival.date()
 
@@ -44,7 +44,7 @@ def compute_expected_charges(movement: dict, rate_df, assumptions: dict) -> list
 
     charges: list[dict] = []
 
-    # 1) LANDING —— 所有可计费状态都收
+    # 1) LANDING — applies to every billable status
     landing_qty = math.ceil(movement["mtow_tonnes"])
     landing_rate = lookup_rate(rate_df, "LANDING", "ANY", arrival_date)
     charges.append({
@@ -54,12 +54,12 @@ def compute_expected_charges(movement: dict, rate_df, assumptions: dict) -> list
         "amount": round(landing_qty * landing_rate, 2),
     })
 
-    # DIVERTED 只收起降费，其余全免
+    # DIVERTED bills the landing charge only, everything else is waived
     diverted_charges = as_enum_set(assumptions, "diverted_billable_charges")
     if status == "DIVERTED":
         return charges
 
-    # 2) PARKING —— 超出免费时长才收，每 15 分钟一档向上取整
+    # 2) PARKING — billed only beyond the free grace, per 15-minute block rounded up
     excess = dur_min - free_min
     if excess > 0:
         qty = math.ceil(excess / 15.0)
@@ -71,7 +71,7 @@ def compute_expected_charges(movement: dict, rate_df, assumptions: dict) -> list
             "amount": round(qty * rate, 2),
         })
 
-    # 3) AEROBRIDGE —— 仅 CONTACT 机位
+    # 3) AEROBRIDGE — CONTACT stands only
     if movement["stand_type"] == contact:
         qty = math.ceil(dur_min / 60.0)
         rate = lookup_rate(rate_df, "AEROBRIDGE", contact, arrival_date)
@@ -82,7 +82,7 @@ def compute_expected_charges(movement: dict, rate_df, assumptions: dict) -> list
             "amount": round(qty * rate, 2),
         })
 
-    # 4) PSC —— 仅离港旅客 > 0（货机为 0，不收）
+    # 4) PSC — only when departing pax > 0 (cargo flights have 0, so none)
     if movement["pax_departing"] > 0:
         scope = movement["scope"]
         rate = lookup_rate(rate_df, "PSC", scope, arrival_date)

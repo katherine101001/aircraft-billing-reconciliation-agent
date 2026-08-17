@@ -1,4 +1,5 @@
-"""load.py 的边界测试：日期解析、9999-12-31 哨兵、credit note 空行号填充、列完整性。"""
+"""Boundary tests for load.py: date parsing, the 9999-12-31 sentinel, credit-note blank
+line-id fill, and column completeness."""
 from __future__ import annotations
 
 from datetime import date
@@ -22,7 +23,7 @@ def test_load_movements_parses_datetimes():
 
 
 def test_load_rate_card_handles_open_ended_sentinel():
-    # 关键：9999-12-31 哨兵被正确解析，不溢出（pandas 纳秒上限约 2262 年）
+    # Key: the 9999-12-31 sentinel parses without overflow (pandas nanosecond cap is ~year 2262)
     df = load_rate_card()
     assert df["effective_to"].max() == date(9999, 12, 31)
     assert all(isinstance(d, date) for d in df["effective_from"])

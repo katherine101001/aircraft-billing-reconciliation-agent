@@ -1,8 +1,9 @@
-"""计费规则 compute_expected_charges 的边界测试。
+"""Boundary tests for billing_rules.compute_expected_charges.
 
-只测「应该收多少钱」这一步，不涉及对账对比。
-覆盖：MTOW 向上取整、日期敏感单价、免费停车宽限、15 分钟一档、
-按小时取整的廊桥、CONTACT/REMOTE、PSC 国内/国际/货机、取消/备降、跨天停留。
+Only tests the "how much should be charged" step, not the reconciliation comparison.
+Covers: MTOW rounding up, date-sensitive unit rate, free parking grace, 15-minute blocks,
+hourly-rounded aerobridge, CONTACT/REMOTE, PSC domestic/international/cargo, cancelled/
+diverted, and overnight stays.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ def _types(charges):
     return [c["charge_type"] for c in charges]
 
 
-# ---------- LANDING：MTOW 向上取整 + 日期敏感单价 ----------
+# ---------- LANDING: MTOW rounded up + date-sensitive unit rate ----------
 
 def test_landing_ceil_rounds_up_fractional_mtow():
     m = make_movement(mtow_tonnes=411.3)
@@ -37,45 +38,45 @@ def test_landing_integer_mtow_unchanged():
 
 
 def test_landing_rate_boundary_mar31_vs_apr1():
-    # 日期敏感：3-31 收 12.00/吨，4-01 起 13.50/吨
+    # date-sensitive: 12.00/tonne on 3-31, 13.50/tonne from 4-01
     m1 = make_movement(arrival_datetime=datetime(2026, 3, 31, 14, 30))
     m2 = make_movement(arrival_datetime=datetime(2026, 4, 1, 14, 30))
-    assert _amount(_charges(m1), "LANDING") == 4932.00  # 411 × 12.00（默认 MTOW=411）
+    assert _amount(_charges(m1), "LANDING") == 4932.00  # 411 × 12.00 (default MTOW=411)
     assert _amount(_charges(m2), "LANDING") == 5548.50  # 411 × 13.50
 
 
-# ---------- PARKING：60 分钟宽限 + 15 分钟一档向上取整 ----------
+# ---------- PARKING: 60-minute grace + 15-minute blocks rounded up ----------
 
 def test_parking_inside_grace_is_free():
     m = make_movement(arrival_datetime=datetime(2026, 3, 1, 14, 0),
-                      departure_datetime=datetime(2026, 3, 1, 15, 0))  # 正好 60 分钟
+                      departure_datetime=datetime(2026, 3, 1, 15, 0))  # exactly 60 minutes
     assert _amount(_charges(m), "PARKING") == 0.0
 
 
 def test_parking_one_minute_over_grace_charges_one_block():
-    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 31))  # 61 分钟
+    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 31))  # 61 minutes
     assert _amount(_charges(m), "PARKING") == 8.00  # ceil(1/15)=1 × 8.00
 
 
 def test_parking_exact_block_boundary():
-    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 45))  # 75 分钟 → 超 15
+    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 45))  # 75 minutes → 15 over
     assert _amount(_charges(m), "PARKING") == 8.00  # ceil(15/15)=1
 
 
 def test_parking_just_over_block_boundary_rounds_up():
-    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 46))  # 76 分钟 → 超 16
+    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 46))  # 76 minutes → 16 over
     assert _amount(_charges(m), "PARKING") == 16.00  # ceil(16/15)=2
 
 
-# ---------- AEROBRIDGE：仅 CONTACT + 按小时向上取整 ----------
+# ---------- AEROBRIDGE: CONTACT only + hourly rounding up ----------
 
 def test_aerobridge_contact_one_hour():
-    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 30))  # 60 分钟
+    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 30))  # 60 minutes
     assert _amount(_charges(m), "AEROBRIDGE") == 120.00  # ceil(60/60)=1 × 120
 
 
 def test_aerobridge_hour_rounds_up():
-    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 31))  # 61 分钟
+    m = make_movement(departure_datetime=datetime(2026, 3, 1, 15, 31))  # 61 minutes
     assert _amount(_charges(m), "AEROBRIDGE") == 240.00  # ceil(61/60)=2 × 120
 
 
@@ -85,7 +86,7 @@ def test_aerobridge_remote_stand_not_charged():
     assert "AEROBRIDGE" not in _types(_charges(m))
 
 
-# ---------- PSC：国内 11 / 国际 35 / 货机 0 人不收 ----------
+# ---------- PSC: domestic 11 / international 35 / cargo (0 pax) not charged ----------
 
 def test_psc_international():
     m = make_movement(pax_departing=298, scope="INTERNATIONAL")
@@ -103,7 +104,7 @@ def test_psc_cargo_zero_pax_not_charged():
     assert "PSC" not in _types(_charges(m))
 
 
-# ---------- 状态规则 ----------
+# ---------- Status rules ----------
 
 def test_cancelled_has_no_charges():
     m = make_movement(status="CANCELLED")
@@ -112,13 +113,13 @@ def test_cancelled_has_no_charges():
 
 def test_diverted_only_landing():
     m = make_movement(status="DIVERTED",
-                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # 本应停车/廊桥
+                      departure_datetime=datetime(2026, 3, 1, 16, 30))  # would otherwise park/use bridge
     assert _types(_charges(m)) == ["LANDING"]
 
 
-# ---------- 跨天停留 ----------
+# ---------- Overnight stay ----------
 
 def test_overnight_turnaround_duration():
     m = make_movement(arrival_datetime=datetime(2026, 3, 1, 23, 30),
-                      departure_datetime=datetime(2026, 3, 2, 1, 30))  # 跨天 120 分钟
-    assert _amount(_charges(m), "PARKING") == 32.00  # 超 60 → ceil(60/15)=4 × 8
+                      departure_datetime=datetime(2026, 3, 2, 1, 30))  # overnight, 120 minutes
+    assert _amount(_charges(m), "PARKING") == 32.00  # over 60 → ceil(60/15)=4 × 8

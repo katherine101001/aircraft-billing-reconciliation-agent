@@ -1,26 +1,27 @@
-"""对账主循环：把 movements（真相）与 billing_ledger（待查）逐条比对。
+"""Reconciliation main loop: compares movements (the truth) against the
+billing_ledger (what to check) line by line.
 
-输出结构化异常列表。每个异常是一条 dict，含：
+Outputs a structured list of exceptions. Each exception is a dict with:
   movement_id, invoice_line_id, exception_type, charge_type,
   airline_code, billed_airline_code, expected_amount, actual_amount,
   financial_impact_myr, evidence_ref, resolution_status, credit_note_id
 
-财务影响符号约定（来自题目）：
-  正数 = 钱应归运营方（漏收/少收，该补收）
-  负数 = 钱应退给航司（多收/错收）
+Financial-impact sign convention (from the brief):
+  positive = money owed to the operator (under-billed / missed, to collect)
+  negative = money owed back to the airline (over-billed / wrong)
 
-异常类型（11 类）：
-  MISSING_CHARGE      该收的费没开单（漏收）
-  WRONG_RATE          单价用错
-  WRONG_QUANTITY      数量用错
-  WRONG_AMOUNT        数量/单价都对，金额仍对不上
-  DUPLICATE           同一 movement 同一 charge_type 重复开单
-  ORPHAN_CHARGE       开单指向不存在的 movement
-  WRONG_AIRLINE       开到了错误的航司头上（净影响 0，但要退款+重开）
-  CANCELLED_CHARGED   对取消航班收费
-  REMOTE_AEROBRIDGE   远机位收了廊桥费
-  DIVERTED_OVERCHARGE 备降航班收了起降费以外的费用
-  PSC_ON_CARGO        货机（0 旅客）收了旅客服务费
+Exception types (11):
+  MISSING_CHARGE       a due charge was never billed (leakage)
+  WRONG_RATE           wrong unit rate used
+  WRONG_QUANTITY       wrong quantity used
+  WRONG_AMOUNT         quantity and rate both right, amount still doesn't match
+  DUPLICATE            the same movement + charge_type billed twice
+  ORPHAN_CHARGE        a billing line points to a movement that doesn't exist
+  WRONG_AIRLINE        billed to the wrong airline (net impact 0, but refund + rebill)
+  CANCELLED_CHARGED    a cancelled movement was charged
+  REMOTE_AEROBRIDGE    an aerobridge charge on a remote stand
+  DIVERTED_OVERCHARGE  a diverted movement charged for more than the landing
+  PSC_ON_CARGO         a cargo movement (0 pax) charged PSC
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ from .config import as_date, as_enum_set, as_float
 
 
 def _make_exception(**kwargs) -> dict:
-    """构造一条异常，补齐默认字段。"""
+    """Build one exception, filling in the default fields."""
     exc = {
         "movement_id": "",
         "invoice_line_id": "",
@@ -51,14 +52,15 @@ def _make_exception(**kwargs) -> dict:
 
 
 def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: dict) -> list[dict]:
-    """对账入口。返回异常列表（未做 credit note 解决，见 resolve_credit_notes）。"""
+    """Reconciliation entry point. Returns the exception list (credit-note resolution
+    not applied yet; see resolve_credit_notes)."""
     tolerance = as_float(assumptions, "amount_tolerance")
     period_start = as_date(assumptions, "reconciliation_period_start")
     period_end = as_date(assumptions, "reconciliation_period_end")
 
     mov_by_id = {m["movement_id"]: m for m in movements}
 
-    # 把 ledger 按 movement_id 分组，方便每个 movement 快速取到自己的行
+    # Group the ledger by movement_id so each movement can quickly reach its own lines
     ledger_by_movement: dict[str, list[dict]] = defaultdict(list)
     orphan_lines: list[dict] = []
     for line in ledger:
@@ -66,11 +68,11 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
         if mid in mov_by_id:
             ledger_by_movement[mid].append(line)
         else:
-            orphan_lines.append(line)  # 指向不存在的 movement
+            orphan_lines.append(line)  # points to a movement that doesn't exist
 
     exceptions: list[dict] = []
 
-    # ---------- 1) 孤儿账：无对应 movement ----------
+    # ---------- 1) Orphan charges: no matching movement ----------
     for line in orphan_lines:
         exceptions.append(_make_exception(
             movement_id=line["movement_id"],
@@ -79,12 +81,12 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
             charge_type=line["charge_type"],
             airline_code=line["airline_code"],
             actual_amount=float(line["amount_billed"]),
-            financial_impact_myr=round(-float(line["amount_billed"]), 2),  # 不该收，应退
+            financial_impact_myr=round(-float(line["amount_billed"]), 2),  # shouldn't be charged, refund
         ))
 
-    # ---------- 2) 逐 movement 对账 ----------
+    # ---------- 2) Per-movement reconciliation ----------
     for m in movements:
-        # 只对账快照期间内的起降（按到达日期判断）
+        # Only reconcile movements within the snapshot period (by arrival date)
         if not (period_start <= m["arrival_datetime"].date() <= period_end):
             continue
 
@@ -94,15 +96,16 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
 
         status = m["status"]
         valid_lines: list[dict] = []
-        # 记录被「错记航司」的费用类型：这些费用不算漏收，避免与 WRONG_AIRLINE 重复计数
+        # Track charge types billed to the wrong airline: these are not counted as
+        # missed charges, to avoid double-counting with WRONG_AIRLINE
         wrong_airline_types: set[str] = set()
 
-        # --- 2a) 行级检查：每条 ledger 行本身是否合法 ---
+        # --- 2a) Line-level checks: is each ledger line itself valid ---
         for line in lines:
             charge_type = line["charge_type"]
             actual_amt = float(line["amount_billed"])
 
-            # 错记航司：净影响 0，但要退款 + 重开
+            # Billed to the wrong airline: net impact 0, but needs refund + rebill
             if line["airline_code"] != m["airline_code"]:
                 wrong_airline_types.add(charge_type)
                 exceptions.append(_make_exception(
@@ -110,8 +113,8 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                     invoice_line_id=line["invoice_line_id"],
                     exception_type="WRONG_AIRLINE",
                     charge_type=charge_type,
-                    airline_code=m["airline_code"],          # 正确航司
-                    billed_airline_code=line["airline_code"],  # 被错记的航司
+                    airline_code=m["airline_code"],          # correct airline
+                    billed_airline_code=line["airline_code"],  # the wrongly-billed airline
                     expected_amount=expected.get(charge_type, {}).get("amount", 0.0),
                     actual_amount=actual_amt,
                     financial_impact_myr=0.0,                # net 0
@@ -119,7 +122,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 ))
                 continue
 
-            # 取消航班收费
+            # Charged a cancelled movement
             if status == "CANCELLED":
                 exceptions.append(_make_exception(
                     movement_id=m["movement_id"],
@@ -133,7 +136,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 ))
                 continue
 
-            # 备降航班多收费（只允许 LANDING）
+            # Diverted movement over-charged (only LANDING allowed)
             diverted_charges = as_enum_set(assumptions, "diverted_billable_charges")
             if status == "DIVERTED" and charge_type not in diverted_charges:
                 exceptions.append(_make_exception(
@@ -148,7 +151,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 ))
                 continue
 
-            # 远机位收廊桥费
+            # Aerobridge charged on a remote stand
             if charge_type == "AEROBRIDGE" and m["stand_type"] == "REMOTE":
                 exceptions.append(_make_exception(
                     movement_id=m["movement_id"],
@@ -162,7 +165,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 ))
                 continue
 
-            # 货机（0 旅客）收了 PSC
+            # Cargo movement (0 pax) charged PSC
             if charge_type == "PSC" and m["pax_departing"] == 0:
                 exceptions.append(_make_exception(
                     movement_id=m["movement_id"],
@@ -178,7 +181,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
 
             valid_lines.append(line)
 
-        # --- 2b) 集合级检查：expected 与合法行的比对 ---
+        # --- 2b) Set-level checks: expected vs valid lines ---
         by_type: dict[str, list[dict]] = defaultdict(list)
         for line in valid_lines:
             by_type[line["charge_type"]].append(line)
@@ -188,17 +191,18 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
             exp_amt = exp["amount"]
 
             if len(acts) == 0:
-                # 被错记航司的费用不算漏收（已在 WRONG_AIRLINE 里处理退款+重开）
+                # A charge billed to the wrong airline is not a missed charge
+                # (its refund + rebill is already handled under WRONG_AIRLINE)
                 if charge_type in wrong_airline_types:
                     continue
-                # 该收的费完全没开单
+                # A due charge was never billed at all
                 exceptions.append(_make_exception(
                     movement_id=m["movement_id"],
                     exception_type="MISSING_CHARGE",
                     charge_type=charge_type,
                     airline_code=m["airline_code"],
                     expected_amount=exp_amt,
-                    financial_impact_myr=round(exp_amt, 2),  # 漏收，应补收
+                    financial_impact_myr=round(exp_amt, 2),  # missed, to collect
                     evidence_ref=m["evidence_ref"],
                 ))
 
@@ -207,11 +211,11 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 actual_amt = float(a["amount_billed"])
                 diff = round(exp_amt - actual_amt, 2)
 
-                # 差异在容忍度内 → 舍入，不报
+                # difference within tolerance → rounding, don't flag
                 if abs(diff) <= tolerance:
                     continue
 
-                # 判定到底是哪错了
+                # Decide which of the three went wrong
                 if round(float(a["unit_rate"]), 2) != round(exp["unit_rate"], 2):
                     etype = "WRONG_RATE"
                 elif int(a["quantity"]) != int(exp["quantity"]):
@@ -232,7 +236,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                 ))
 
             else:
-                # 重复开单：第一行算主行，其余是重复
+                # Duplicate billing: the first line is primary, the rest are duplicates
                 for extra in acts[1:]:
                     extra_amt = float(extra["amount_billed"])
                     exceptions.append(_make_exception(
@@ -242,7 +246,7 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
                         charge_type=charge_type,
                         airline_code=m["airline_code"],
                         actual_amount=extra_amt,
-                        financial_impact_myr=round(-extra_amt, 2),  # 多收，应退
+                        financial_impact_myr=round(-extra_amt, 2),  # over-billed, refund
                         evidence_ref=m["evidence_ref"],
                     ))
 
@@ -250,10 +254,11 @@ def reconcile(movements: list[dict], ledger: list[dict], rate_df, assumptions: d
 
 
 def resolve_credit_notes(exceptions: list[dict], credit_notes: list[dict]) -> list[dict]:
-    """用 credit note 判定异常是否已被解决。
+    """Determine whether each exception has been resolved by a credit note.
 
-    解决条件（来自题目）：credit note 的 related_invoice_line_id 精确等于
-    问题行，且金额 + 币种覆盖该差异。空 line_id 的 credit note 不解决任何异常。
+    Resolution rule (from the brief): a credit note's related_invoice_line_id
+    must exactly equal the problem line, and its amount + currency must cover the
+    difference. A credit note with an empty line_id resolves nothing.
     """
     cn_by_line: dict[str, list[dict]] = defaultdict(list)
     for cn in credit_notes:

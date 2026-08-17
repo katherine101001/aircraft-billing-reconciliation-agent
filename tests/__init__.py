@@ -1,1 +1,1 @@
-# 让 tests/ 成为一个包，配合 `python -m tests.run_all` 运行。
+# Make tests/ a package so `python -m tests.run_all` works.

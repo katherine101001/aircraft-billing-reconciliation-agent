@@ -1,6 +1,8 @@
-"""端到端集成测试：在真实 6 张表上跑完整流水线，断言确定性结果。
+"""End-to-end integration tests: run the full pipeline on the real 6 tables and assert the
+deterministic results.
 
-这些「锚点数字」来自一次正确运行，任何改坏逻辑的改动都会让它们失配。
+These "anchor numbers" come from one correct run; any change that breaks the logic will
+make them mismatch.
 """
 from __future__ import annotations
 
@@ -22,36 +24,36 @@ def _run_full():
 
 def test_end_to_end_total_count():
     exc = _run_full()
-    assert len(exc) == 92, f"期望 92 条异常，实际 {len(exc)} 条"
+    assert len(exc) == 92, f"expected 92 exceptions, got {len(exc)}"
 
 
 def test_end_to_end_net_impact():
     exc = _run_full()
     total = round(sum(e["financial_impact_myr"] for e in exc), 2)
-    assert total == -24779.10, f"期望净影响 -24779.10，实际 {total}"
+    assert total == -24779.10, f"expected net impact -24779.10, got {total}"
 
 
 def test_end_to_end_resolved_count():
     exc = _run_full()
     resolved = sum(1 for e in exc if e["resolution_status"] == "RESOLVED_BY_CREDIT_NOTE")
-    assert resolved == 5, f"期望 5 条已被 credit note 解决，实际 {resolved}"
+    assert resolved == 5, f"expected 5 resolved by credit note, got {resolved}"
 
 
 def test_end_to_end_wrong_airline_net_zero():
     exc = _run_full()
     wa_total = round(sum(e["financial_impact_myr"] for e in exc
                          if e["exception_type"] == "WRONG_AIRLINE"), 2)
-    assert wa_total == 0.0, f"错记航司净影响应为 0，实际 {wa_total}"
+    assert wa_total == 0.0, f"wrong-airline net impact should be 0, got {wa_total}"
 
 
 def test_end_to_end_no_rounding_false_alarm():
     exc = _run_full()
     small = [e for e in exc if e["exception_type"] != "WRONG_AIRLINE"
              and 0 < abs(e["financial_impact_myr"]) <= 0.05]
-    assert small == [], f"存在 ≤0.05 的舍入误报: {small}"
+    assert small == [], f"rounding false alarms ≤0.05 exist: {small}"
 
 
-# ---------- 全局不变式（对整份输出做属性校验）----------
+# ---------- Global invariants (property checks over the whole output) ----------
 
 def test_invariant_net_equals_positive_plus_negative():
     exc = _run_full()
@@ -67,9 +69,9 @@ def test_invariant_sign_convention_by_type():
                         "REMOTE_AEROBRIDGE", "DIVERTED_OVERCHARGE", "PSC_ON_CARGO"}
     for e in exc:
         if e["exception_type"] in overcharge_types:
-            assert e["financial_impact_myr"] < 0, f"{e['exception_type']} 应为负（多收）"
+            assert e["financial_impact_myr"] < 0, f"{e['exception_type']} should be negative (over-billed)"
         if e["exception_type"] == "MISSING_CHARGE":
-            assert e["financial_impact_myr"] > 0, "漏收应为正（少收）"
+            assert e["financial_impact_myr"] > 0, "missed charge should be positive (under-billed)"
         if e["exception_type"] == "WRONG_AIRLINE":
             assert e["financial_impact_myr"] == 0.0
 
@@ -78,7 +80,7 @@ def test_invariant_evidence_attached_except_orphan():
     exc = _run_full()
     for e in exc:
         if e["exception_type"] != "ORPHAN_CHARGE":
-            assert e["evidence_ref"], f"{e['exception_type']} 应挂证据号"
+            assert e["evidence_ref"], f"{e['exception_type']} should carry an evidence ref"
 
 
 def test_invariant_all_required_fields_present():
@@ -89,4 +91,4 @@ def test_invariant_all_required_fields_present():
                 "resolution_status", "credit_note_id"]
     for e in exc:
         for k in required:
-            assert k in e, f"缺少字段 {k}"
+            assert k in e, f"missing field {k}"

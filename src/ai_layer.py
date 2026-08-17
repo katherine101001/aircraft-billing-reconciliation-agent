@@ -1,85 +1,94 @@
-"""AI 推理层 —— 只负责「把话写出来」，绝不参与任何数字计算或分类。
+"""AI reasoning layer — writes the words only, never touches numbers or classification.
 
 =====================================================================
- 边界（题目硬性要求）：对账引擎（reconcile.py）决定异常类型和每个金额；
- 本模块只做「字符串生成」，输入是引擎产出的异常 dict，输出是文本，
- 不修改任何数字或分类字段。接入真实 LLM 时，只替换 explain() 与
- summarize() 的实现，其余逻辑不变。
+  Boundary (hard requirement): the reconciliation engine (reconcile.py)
+  decides the exception type and every amount; this module only generates
+  strings. Its input is the exception dict produced by the engine and its
+  output is text — it never modifies any number or classification field.
+  When wiring in a real LLM, replace only explain_exception() and
+  summarize(); everything else stays the same.
 =====================================================================
 
-当前为 MOCK 实现（无需 API key）。真实模型接入点已用 TODO 标注。
+Currently a MOCK implementation (no API key required). The real-model
+insertion point is marked with a TODO.
 """
 from __future__ import annotations
 
-# 异常类型 → 大白话业务语言（供 explain 使用）
+# Exception type -> plain business language (used by explain_exception)
 TYPE_PLAIN_LANGUAGE = {
-    "MISSING_CHARGE": "该航班应收取的费用未开单，属于漏收",
-    "WRONG_RATE": "开单使用了错误的单价",
-    "WRONG_QUANTITY": "开单使用了错误的计费数量",
-    "WRONG_AMOUNT": "单价与数量均正确，但金额计算有误",
-    "DUPLICATE": "同一航班同一费用被重复开单",
-    "ORPHAN_CHARGE": "开单引用了不存在的起降记录，无法对应到任何航班",
-    "WRONG_AIRLINE": "费用开到了错误的航空公司头上",
-    "CANCELLED_CHARGED": "对已取消的航班收取了费用",
-    "REMOTE_AEROBRIDGE": "远机位航班被收取了廊桥费（远机位不提供廊桥）",
-    "DIVERTED_OVERCHARGE": "备降航班被收取了起降费以外的费用",
-    "PSC_ON_CARGO": "货机（无离港旅客）被收取了旅客服务费",
+    "MISSING_CHARGE": "A charge that should have been billed was not",
+    "WRONG_RATE": "Billed at the wrong unit rate",
+    "WRONG_QUANTITY": "Billed with the wrong quantity",
+    "WRONG_AMOUNT": "Unit rate and quantity correct, but the amount is miscalculated",
+    "DUPLICATE": "The same movement and charge were billed twice",
+    "ORPHAN_CHARGE": "A billing line references a movement that does not exist",
+    "WRONG_AIRLINE": "The charge was billed to the wrong airline",
+    "CANCELLED_CHARGED": "A cancelled movement was still charged",
+    "REMOTE_AEROBRIDGE": "An aerobridge charge on a remote stand (no bridge available)",
+    "DIVERTED_OVERCHARGE": "A diverted movement was charged for more than the landing",
+    "PSC_ON_CARGO": "A cargo movement (no departing passengers) was charged PSC",
 }
 
 
 def explain_exception(exc: dict) -> str:
-    """把一条异常翻译成一段可粘贴给客户的说明，引用证据号。"""
+    """Translate one exception into a paste-ready explanation citing the evidence ref."""
     etype = exc["exception_type"]
     plain = TYPE_PLAIN_LANGUAGE.get(etype, etype)
     impact = exc["financial_impact_myr"]
-    evidence = exc["evidence_ref"] or "无"
+    evidence = exc["evidence_ref"] or "none"
 
     if etype == "WRONG_AIRLINE":
         return (
-            f"【{etype}】{plain}。航班 {exc['movement_id']}（{exc['airline_code']}）的"
-            f"{exc['charge_type']}费用 {exc['actual_amount']:.2f} MYR 被误开给了"
-            f"{exc['billed_airline_code']}。需两笔动作：向 {exc['billed_airline_code']} 退款，"
-            f"并向 {exc['airline_code']} 重新开票。证据号 {evidence}。"
+            f"[{etype}] {plain}. Movement {exc['movement_id']} ({exc['airline_code']}) "
+            f"{exc['charge_type']} charge of {exc['actual_amount']:.2f} MYR was billed to "
+            f"{exc['billed_airline_code']}. Two actions required: refund "
+            f"{exc['billed_airline_code']} and rebill {exc['airline_code']}. "
+            f"Evidence: {evidence}."
         )
 
-    direction = "应收未收" if impact > 0 else ("应退" if impact < 0 else "净影响为零")
+    direction = (
+        "under-billed (owed to operator)" if impact > 0
+        else "over-billed (owed back)" if impact < 0
+        else "net zero"
+    )
     return (
-        f"【{etype}】{plain}。航班 {exc['movement_id']} 的 {exc['charge_type']} 费用，"
-        f"期望 {exc['expected_amount']:.2f} MYR，实际 {exc['actual_amount']:.2f} MYR，"
-        f"差额 {abs(impact):.2f} MYR（{direction}）。证据号 {evidence}。"
+        f"[{etype}] {plain}. Movement {exc['movement_id']} {exc['charge_type']} charge: "
+        f"expected {exc['expected_amount']:.2f} MYR, actual {exc['actual_amount']:.2f} MYR, "
+        f"difference {abs(impact):.2f} MYR ({direction}). Evidence: {evidence}."
     )
 
 
 def summarize(stats: dict) -> str:
-    """生成给管理层的自然语言总结。数字全部由 stats 传入（来自引擎统计），
-    本函数不自行计算任何金额。"""
+    """Generate the natural-language management summary. All numbers come from `stats`
+    (the engine's own statistics); this function never computes any amount itself."""
     lines = [
-        "# 对账总结（管理层版）",
+        "# Reconciliation summary (management view)",
         "",
-        f"本次对账共发现 **{stats['total_exceptions']}** 处异常，",
-        f"净财务影响 **{stats['net_impact']:,.2f} MYR**。",
+        f"Found **{stats['total_exceptions']}** exceptions with a net financial impact of",
+        f"**{stats['net_impact']:,.2f} MYR**.",
         "",
-        f"- 漏收/少收（应补收）：{stats['positive_total']:,.2f} MYR",
-        f"- 多收/错收（应退航司）：{abs(stats['negative_total']):,.2f} MYR",
-        f"- 尚未解决的敞口：{stats['open_count']} 条",
+        f"- Under-billed (owed to operator): {stats['positive_total']:,.2f} MYR",
+        f"- Over-billed (owed back to airlines): {abs(stats['negative_total']):,.2f} MYR",
+        f"- Open (not yet resolved): {stats['open_count']}",
         "",
-        "## 按异常类型分布",
+        "## Exceptions by type",
     ]
     for etype, (cnt, amt) in sorted(stats["by_type"].items(), key=lambda kv: -kv[1][1]):
-        lines.append(f"- {etype}：{cnt} 条，合计 {amt:,.2f} MYR")
+        lines.append(f"- {etype}: {cnt} lines, {amt:,.2f} MYR")
 
     lines += [
         "",
-        "## 建议优先处理",
-        "1. 金额最大的未解决异常优先核对证据；",
-        "2. 涉及退款（负向）的异常需先经人工复核，再向航司发出；",
-        "3. 本报告为建议，发往航司前必须有人工签字确认。",
+        "## Recommended priorities",
+        "1. Reconcile the largest open exceptions against the evidence first;",
+        "2. Refund (negative) exceptions must be human-reviewed before being sent to an airline;",
+        "3. This report is a recommendation; nothing reaches an airline without human sign-off.",
     ]
     return "\n".join(lines)
 
 
 # ------------------------------------------------------------------
-# 真实模型接入点（TODO）：把下面的 mock 换成真实 LLM 调用。
-#   例：explain_exception = lambda exc: llm(EXPLAIN_PROMPT.format(exc=exc))
-#   注意：prompt 只让模型「措辞」，绝不把金额/分类的判定权交给模型。
+# Real-model insertion point (TODO): swap the mock below for a real LLM call.
+#   e.g. explain_exception = lambda exc: llm(EXPLAIN_PROMPT.format(exc=exc))
+#   Note: the prompt only lets the model "phrase"; it never hands the model
+#   the authority to decide amounts or classifications.
 # ------------------------------------------------------------------

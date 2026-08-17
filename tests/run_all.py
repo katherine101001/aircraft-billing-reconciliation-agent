@@ -1,16 +1,16 @@
-"""一键运行所有测试。
+"""Run all tests in one go.
 
-用法（在项目根目录）：
+Usage (from the project root):
     python -m tests.run_all
 
-成功打印 PASS，失败打印 FAIL 并返回退出码 1（供 CI/考官核对）。
+Prints PASS on success; prints FAIL and returns exit code 1 on failure (for CI / reviewer).
 """
 from __future__ import annotations
 
 import importlib
 import sys
 
-# Windows 控制台默认 cp1252，强制 UTF-8 以免打印中文/货币符号报错
+# Windows consoles default to cp1252; force UTF-8 so non-ASCII output doesn't error
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 MODULES = [
@@ -44,11 +44,11 @@ def main() -> int:
             except AssertionError as e:
                 print(f"  FAIL  {label}  ->  {e}")
                 failed += 1
-            except Exception as e:  # noqa: BLE001 —— 非断言异常也记为失败
+            except Exception as e:  # noqa: BLE001 — non-assertion errors also count as failures
                 print(f"  ERROR {label}  ->  {type(e).__name__}: {e}")
                 failed += 1
 
-    print(f"\n===== 共 {passed} 通过，{failed} 失败 =====")
+    print(f"\n===== {passed} passed, {failed} failed =====")
     return 1 if failed else 0
 
 

@@ -1,7 +1,8 @@
-"""credit note 解决判定 resolve_credit_notes 的边界测试。
+"""Boundary tests for resolve_credit_notes.
 
-覆盖：精确行匹配、金额足额覆盖、币种必须 MYR、空白行号不解决、
-行号不匹配不解决、部分覆盖后找到足额覆盖、无行号的异常无法被解决。
+Covers: exact line match, full amount coverage, currency must be MYR, blank line id does not
+resolve, non-matching line id does not resolve, partial-then-full coverage, and exceptions
+without a line id cannot be resolved.
 """
 from __future__ import annotations
 

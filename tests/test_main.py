@@ -1,7 +1,8 @@
-"""main.py 的边界测试：完整流水线（进程内）+ 入口脚本（子进程）。
+"""Boundary tests for main.py: the full pipeline (in-process) + the entry script (subprocess).
 
-子进程测试真正以 `python -m src.main` 方式跑一次，证明入口可用（对应源码里的
-`if __name__ == "__main__"` 分支，该分支本身用 `# pragma: no cover` 标注）。
+The subprocess test really runs `python -m src.main` once to prove the entry point works
+(corresponding to the `if __name__ == "__main__"` branch, which is itself marked
+`# pragma: no cover`).
 """
 from __future__ import annotations
 
@@ -20,8 +21,8 @@ def test_main_runs_end_to_end_in_process():
     with contextlib.redirect_stdout(buf):
         main()
     out = buf.getvalue()
-    assert "对账总结" in out
-    assert "净财务影响" in out
+    assert "Reconciliation summary" in out
+    assert "net financial impact" in out
 
 
 def test_main_entry_point_as_script():
@@ -29,5 +30,5 @@ def test_main_entry_point_as_script():
         [sys.executable, "-m", "src.main"],
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
     )
-    assert r.returncode == 0, f"退出码 {r.returncode}\nstdout={r.stdout}\nstderr={r.stderr}"
-    assert "净财务影响" in r.stdout
+    assert r.returncode == 0, f"exit code {r.returncode}\nstdout={r.stdout}\nstderr={r.stderr}"
+    assert "net financial impact" in r.stdout

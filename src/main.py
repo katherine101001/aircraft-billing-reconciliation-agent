@@ -1,12 +1,12 @@
-"""入口：加载数据 → 对账 → 解决 credit note → 输出报告。
+"""Entry point: load data → reconcile → resolve credit notes → write report.
 
-运行：  python src/main.py
+Run:  python src/main.py
 """
 from __future__ import annotations
 
 import sys
 
-# Windows 控制台默认 cp1252，无法打印中文/货币符号；强制用 UTF-8
+# Windows consoles default to cp1252, which can't print non-ASCII characters; force UTF-8
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from .config import load_assumptions
@@ -21,7 +21,7 @@ from .report import write_report
 
 
 def main() -> None:
-    # 1) 加载规则与数据（业务输入全部来自文件，不硬编码）
+    # 1) Load rules and data (all business inputs come from files, nothing hardcoded)
     assumptions = load_assumptions()
     rate_df = load_rate_card()
     movements_df = load_movements()
@@ -31,15 +31,15 @@ def main() -> None:
     movements = movements_df.to_dict("records")
     ledger = ledger_df.to_dict("records")
 
-    # 2) 确定性对账
+    # 2) Deterministic reconciliation
     exceptions = reconcile(movements, ledger, rate_df, assumptions)
 
-    # 3) credit note 解决判定
+    # 3) Credit-note resolution
     exceptions = resolve_credit_notes(exceptions, credit_notes)
 
-    # 4) 输出报告（CSV + 管理总结）
+    # 4) Write the report (CSV + management summary)
     write_report(exceptions, assumptions)
 
 
-if __name__ == "__main__":  # pragma: no cover —— 入口，由 `python -m src.main` 触发（见 tests/test_main.py）
+if __name__ == "__main__":  # pragma: no cover — entry point, triggered by `python -m src.main` (see tests/test_main.py)
     main()

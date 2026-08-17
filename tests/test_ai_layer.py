@@ -1,6 +1,8 @@
-"""ai_layer.py 的边界测试：异常→文案、方向措辞、错记航司特例、总结格式。
+"""Boundary tests for ai_layer.py: exception→text, direction wording, the wrong-airline
+special case, and summary formatting.
 
-核心验证点：AI 层只「写文字」，数字全部来自传入的异常 dict / stats，不自算。
+Core check: the AI layer only "writes words"; every number comes from the passed-in
+exception dict / stats, never computed by itself.
 """
 from __future__ import annotations
 
@@ -40,18 +42,18 @@ def test_explain_includes_evidence_ref():
 
 
 def test_explain_positive_impact_says_underbilled():
-    assert "应收未收" in explain_exception(_exc(financial_impact_myr=10430.0))
+    assert "under-billed" in explain_exception(_exc(financial_impact_myr=10430.0))
 
 
 def test_explain_negative_impact_says_refund():
     text = explain_exception(_exc(exception_type="DUPLICATE", financial_impact_myr=-3780.0,
                                   expected_amount=0.0, actual_amount=3780.0))
-    assert "应退" in text
+    assert "over-billed" in text
 
 
 def test_explain_zero_impact_says_net_zero():
     text = explain_exception(_exc(exception_type="WRONG_AMOUNT", financial_impact_myr=0.0))
-    assert "净影响为零" in text
+    assert "net zero" in text
 
 
 def test_explain_wrong_airline_mentions_refund_and_rebill():
@@ -59,12 +61,12 @@ def test_explain_wrong_airline_mentions_refund_and_rebill():
                charge_type="LANDING", financial_impact_myr=0.0, actual_amount=4944.0,
                expected_amount=4944.0)
     text = explain_exception(exc)
-    assert "退款" in text
-    assert "重新开票" in text
+    assert "refund" in text
+    assert "rebill" in text
 
 
 def test_explain_missing_evidence_says_none():
-    assert "无" in explain_exception(_exc(evidence_ref=""))
+    assert "none" in explain_exception(_exc(evidence_ref=""))
 
 
 def test_explain_unknown_type_falls_back_to_raw_type():

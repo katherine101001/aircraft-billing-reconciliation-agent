@@ -1,6 +1,7 @@
-"""report.py 的边界测试：统计（build_stats）、样例挑选（_pick_examples）、落盘（write_report）。
+"""Boundary tests for report.py: statistics (build_stats), example picking (_pick_examples),
+and writing (write_report).
 
-write_report 通过临时目录 + 重定向 stdout 测试，不污染真实 output/。
+write_report is tested via a temp directory + redirected stdout, so the real output/ is untouched.
 """
 from __future__ import annotations
 
@@ -51,7 +52,7 @@ def test_pick_examples_distinct_types_within_max():
     ]
     picked = _pick_examples(exc, max_n=8)
     types = [e["exception_type"] for e in picked]
-    assert len(types) == len(set(types)) == 3  # 3 种类型各选 1，不重复
+    assert len(types) == len(set(types)) == 3  # 3 types, 1 each, no repeats
     assert set(types) == {"MISSING_CHARGE", "DUPLICATE", "WRONG_AIRLINE"}
 
 
@@ -64,9 +65,9 @@ def test_pick_examples_prefers_larger_absolute_impact():
 
 
 def _with_report(exc, check):
-    """在临时目录里跑 write_report，并在目录仍存活时执行 check（读取落盘文件）。
+    """Run write_report in a temp dir and call check (which reads the written files) while it's alive.
 
-    TemporaryDirectory 退出 with 块就会删目录，所以读取必须发生在 with 之内。
+    TemporaryDirectory deletes the dir on leaving the with block, so the reads must happen inside.
     """
     with tempfile.TemporaryDirectory() as d:
         old = report.OUTPUT_DIR
@@ -92,6 +93,6 @@ def test_write_report_writes_csv_and_summary():
 def test_write_report_empty_exceptions_still_writes_header():
     def check(d):
         rows = list(csv.DictReader(open(d / "exceptions.csv", encoding="utf-8-sig")))
-        assert len(rows) == 0  # 只有表头，无数据行（覆盖 examples 为空的分支）
+        assert len(rows) == 0  # header only, no data rows (covers the empty-examples branch)
         assert (d / "summary.md").exists()
     _with_report([], check)

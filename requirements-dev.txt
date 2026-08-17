@@ -1,4 +1,4 @@
-# 开发/测试依赖（运行时不需要）。测量覆盖率用：
+# Dev/test dependencies only (not needed at runtime). To measure coverage:
 #   pip install -r requirements-dev.txt
 #   python -m coverage run -m tests.run_all
 #   python -m coverage report -m
