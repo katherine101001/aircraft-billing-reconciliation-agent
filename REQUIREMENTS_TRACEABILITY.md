@@ -1,6 +1,6 @@
 # Requirements Traceability
 
-> A "map" for the reviewer: each hard requirement in `Case_Study_Brief.md` → the exact file and
+> A "map" for the reviewer: each hard requirement in the case study brief → the exact file and
 > function that implements it. Indexed by `module.function`; line numbers are for orientation.
 > All requirements are complete — no hard requirement is unimplemented.
 
@@ -74,7 +74,7 @@
 |---|---|
 | Code (Git repo or zip) | ✅ Committed and pushed (GitHub) |
 | README (reproduce from scratch) | ✅ `README.md` (with reproducibility anchor numbers) |
-| Deck (≤12 slides) | ⏳ To be built by the candidate (see `PPT_PLAN.md`) |
+| Deck (≤12 slides) | ✅ Built — attached separately to the submission email (not in this repo) |
 | AI usage log | ✅ `AI_USAGE_LOG.md` (3 mistakes + how each was caught) |
 
 ---
