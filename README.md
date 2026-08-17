@@ -24,13 +24,12 @@ candidate_pack/
 │   ├── reconcile.py       # Main reconciliation loop + credit note resolution
 │   ├── ai_layer.py        # AI layer (writes words only, currently a mock)
 │   ├── report.py          # Writes exceptions.csv + summary.md
+│   ├── dashboard.py       # Generates output/dashboard.html (nice-to-have)
 │   └── main.py            # Entry point
 ├── output/                # Generated results (produced on run)
 ├── tests/                 # 88 test cases (python -m tests.run_all)
 ├── REQUIREMENTS_TRACEABILITY.md  # Requirement → code location map
-├── BUG_PRIORITY.md        # P0/P1/P2 bug classification
-├── PPT_PLAN.md            # Slide-by-slide deck plan (numbers from engine output)
-├── AI_USAGE_LOG.md        # AI usage log
+├── AI_USAGE_LOG.md        # AI usage log (required by the brief)
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -90,6 +89,17 @@ Running on the same data is **deterministic** and should match the table below
 
 If your numbers differ, check whether you replaced files under `data/`, or changed
 `rate_card.csv` / `assumptions.csv`.
+
+### Dashboard (optional, single HTML file)
+
+```bash
+python -m src.dashboard   # writes output/dashboard.html
+```
+
+Opens a self-contained page (no server, no external assets) with KPI tiles, a
+diverging bar chart of net impact by exception type, and a filterable/sortable
+table with the evidence reference on every row. Figures are read from
+`output/exceptions.csv`, so run `python -m src.main` first.
 
 ---
 

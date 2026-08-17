@@ -34,7 +34,6 @@ htmlcov/
 .claude/
 
 # 内部笔记 / 题目原始材料（本地保留，不入库）
-AI_USAGE_LOG.md
 BUG_PRIORITY.md
 PPT_PLAN.md
 Presentation_Guide.md
